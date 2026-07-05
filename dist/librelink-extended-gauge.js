@@ -137,7 +137,7 @@ class LibrelinkExtendedGauge extends HTMLElement {
     this.innerHTML = '';
     const container = document.createElement('ha-card');
     container.style.cssText = `
-      padding: 16px 16px 8px 16px;
+      padding: 1px 1px 1px 1px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -172,7 +172,7 @@ class LibrelinkExtendedGauge extends HTMLElement {
       font-weight: bold;
       color: white;
       margin-top: -5px;
-      padding: 8px 0 4px 0;
+      padding: 2px 0 2px 0;
       width: 100%;
       background: transparent;
       border: none;
@@ -204,10 +204,11 @@ class LibrelinkExtendedGauge extends HTMLElement {
         name: this._config.name || 'Glucose',
         unit: this._config.unit || 'mmol/L',
         min: this._config.min || 1,
-        max: this._config.max || 15.5,
+        max: this._config.max || 20,
+        format: this._config.format || '{value:.1f}',  // ← Proper format parameter
         needle: true,
         severity: {
-          green: this._config.green || 4.05,
+          green: this._config.green || 4,
           yellow: this._config.yellow || 10,
           red: this._config.red || 1
         }
@@ -228,6 +229,7 @@ class LibrelinkExtendedGauge extends HTMLElement {
         all: unset !important;
         display: block !important;
         width: 100% !important;
+        max-width: 100% !important;
         background: transparent !important;
         box-shadow: none !important;
         border: none !important;
@@ -253,6 +255,7 @@ class LibrelinkExtendedGauge extends HTMLElement {
             margin: 0 !important;
           `;
         }
+        
       });
       
       if (this._hass) {
