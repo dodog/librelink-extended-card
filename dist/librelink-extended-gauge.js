@@ -43,7 +43,7 @@ class LibrelinkExtendedGauge extends HTMLElement {
       throw new Error('You need to define an entity');
     }
     this._config = {
-      language: 'sk',
+      language: 'en',
       show_trend_arrow: true,
       show_trend_text: true,
       show_delta: true,
