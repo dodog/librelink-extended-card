@@ -97,7 +97,7 @@ show_delta_1min: true
 show_delta_15min: true
 ```
 ## 📸 Screenshots
-<img width="528" height="362" alt="librelink-extended-gauge-screenshot" src="https://github.com/user-attachments/assets/c0592ba8-4706-4e42-bd6e-d5a92eb29575" />
+<img width="528" height="362" alt="librelink-extended-gauge-screenshot" src="https://raw.githubusercontent.com/dodog/librelink-extended-gauge/refs/heads/main/screenshot.png" />
 
 
 ##   🔧 Requirements
