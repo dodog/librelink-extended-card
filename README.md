@@ -56,20 +56,22 @@ show_delta_5min: false          # Show 5min delta as secondary
 show_delta_15min: false         # Show 15min delta as secondary
 ```
 ### ⚙️ Configuration Options
-```
-Option	|Type	|Default	|Description
-entity	string	Required	Main glucose sensor
-language	string	sk	sk or en
-show_trend_arrow	boolean	true	Show/hide trend arrow
-show_trend_text	boolean	true	Show/hide trend text
-show_delta	boolean	true	Show/hide main delta
-show_timestamp	boolean	true	Show/hide last measurement time
-show_expiration	boolean	true	Show/hide sensor expiration
-delta_type	number	5	Main delta: 1, 5, or 15
-show_delta_1min	boolean	false	Show 1min delta as secondary
-show_delta_5min	boolean	false	Show 5min delta as secondary
-show_delta_15min	boolean	false	Show 15min delta as secondary
-```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| entity | string | Required | Main glucose sensor |
+| language | string | en | en or sk |
+| show_trend_arrow | boolean | true | Show/hide trend arrow |
+| show_trend_text | boolean | true | Show/hide trend text |
+| show_delta | boolean | true | Show/hide main delta |
+| show_timestamp | boolean | true | Show/hide last measurement time |
+| show_expiration | boolean | true | Show/hide sensor expiration |
+| delta_type | number | 5 | Main delta: 1, 5, or 15 |
+| show_delta_1min | boolean | false | Show 1min delta as secondary |
+| show_delta_5min | boolean | false | Show 5min delta as secondary |
+| show_delta_15min | boolean | false | Show 15min delta as secondary |
+
+
 ### 🎯 Examples
 Show 15min as main, 5min as secondary
 ```
