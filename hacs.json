@@ -1,0 +1,8 @@
+{
+  "name": "Librelink Extended Gauge",
+  "render_readme": true,
+  "domains": ["sensor"],
+  "homeassistant": "2024.6.0",
+  "content_in_root": false,
+  "filename": "librelink-extended-gauge.js"
+}
