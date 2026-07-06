@@ -1,6 +1,6 @@
-# Librelink Extended Gauge
+# Librelink Extended Card
 
-A custom Home Assistant card that combines the default gauge with trend arrow, delta values, and sensor expiration information. Designed specifically for LibreLink CGM data.
+A custom Home Assistant card with trend arrow, delta values, and sensor expiration information. Designed specifically for LibreLink CGM data.
 
 ## Key Features
 
