@@ -2,7 +2,7 @@
  * Librelink Extended Gauge Card for Home Assistant
  * 
  * This card combines the default HA gauge with trend arrow, delta, and timestamp.
- * Designed for LibreLink integration with automatic sensor detection.
+ * Designed for LibreLink CGM data with automatic sensor detection.
  * 
  * Installation:
  * 1. Save this file to /config/www/librelink-extended-gauge.js
@@ -12,16 +12,8 @@
  * Usage:
  * type: custom:librelink-extended-gauge
  * entity: sensor.your_glucose_sensor
- * language: sk (or en) - optional, defaults to sk
- * show_trend_arrow: true (optional, defaults to true)
- * show_trend_text: true (optional, defaults to true)
- * show_delta: true (optional, defaults to true)
- * show_timestamp: true (optional, defaults to true)
- * show_expiration: true (optional, defaults to true)
- * delta_type: 5 (optional, 1, 5, or 15, defaults to 5)
- * show_delta_1min: false (optional, show 1min delta as secondary)
- * show_delta_5min: false (optional, show 5min delta as secondary)
- * show_delta_15min: false (optional, show 15min delta as secondary)
+ * language: sk (or en) - optional, defaults to en
+ * format: '{value:.1f}' - optional, defaults to 1 decimal place
  */
 
 class LibrelinkExtendedGauge extends HTMLElement {
@@ -44,6 +36,7 @@ class LibrelinkExtendedGauge extends HTMLElement {
     }
     this._config = {
       language: 'en',
+      format: '{value:.1f}',
       show_trend_arrow: true,
       show_trend_text: true,
       show_delta: true,
@@ -93,7 +86,7 @@ class LibrelinkExtendedGauge extends HTMLElement {
   }
 
   _getLanguage() {
-    return this._config.language || 'sk';
+    return this._config.language || 'en';
   }
 
   _getTranslations() {
@@ -137,7 +130,7 @@ class LibrelinkExtendedGauge extends HTMLElement {
     this.innerHTML = '';
     const container = document.createElement('ha-card');
     container.style.cssText = `
-      padding: 1px 1px 1px 1px;
+      padding: 4px 4px 4px 4px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -172,7 +165,7 @@ class LibrelinkExtendedGauge extends HTMLElement {
       font-weight: bold;
       color: white;
       margin-top: -5px;
-      padding: 2px 0 2px 0;
+      padding: 4px 0 4px 0;
       width: 100%;
       background: transparent;
       border: none;
@@ -183,15 +176,66 @@ class LibrelinkExtendedGauge extends HTMLElement {
   }
 
   _loadGauge() {
-    if (window.customElements && window.customElements.get('hui-gauge-card')) {
+    // Check if the gauge element is available
+    const gaugeAvailable = window.customElements && window.customElements.get('hui-gauge-card');
+    
+    if (gaugeAvailable) {
       this._createGauge();
       this._initialized = true;
       this._gaugeLoaded = true;
-    } else {
-      setTimeout(() => {
-        this._loadGauge();
-      }, 500);
+      return;
     }
+    
+    // If not available, wait for it
+    console.log('Waiting for hui-gauge-card to be available...');
+    
+    // Try using MutationObserver to detect when custom elements are registered
+    if (window.customElements && window.customElements.whenDefined) {
+      window.customElements.whenDefined('hui-gauge-card')
+        .then(() => {
+          console.log('hui-gauge-card is now available');
+          this._createGauge();
+          this._initialized = true;
+          this._gaugeLoaded = true;
+        })
+        .catch(() => {
+          // Fallback to polling if whenDefined fails
+          this._pollForGauge();
+        });
+    } else {
+      // Fallback to polling
+      this._pollForGauge();
+    }
+  }
+
+  _pollForGauge() {
+    let attempts = 0;
+    const maxAttempts = 20; // 10 seconds max
+    
+    const poll = setInterval(() => {
+      attempts++;
+      const gaugeAvailable = window.customElements && window.customElements.get('hui-gauge-card');
+      
+      if (gaugeAvailable) {
+        clearInterval(poll);
+        console.log('hui-gauge-card found after polling');
+        this._createGauge();
+        this._initialized = true;
+        this._gaugeLoaded = true;
+      } else if (attempts >= maxAttempts) {
+        clearInterval(poll);
+        console.warn('hui-gauge-card not found after max attempts');
+        // Show error in the gauge container
+        if (this._gaugeContainer) {
+          this._gaugeContainer.innerHTML = `
+            <div style="text-align: center; color: #FF5252; padding: 20px;">
+              Error: Gauge card not loaded.<br>
+              Please refresh the page or check your Home Assistant installation.
+            </div>
+          `;
+        }
+      }
+    }, 500);
   }
 
   _createGauge() {
@@ -204,11 +248,11 @@ class LibrelinkExtendedGauge extends HTMLElement {
         name: this._config.name || 'Glucose',
         unit: this._config.unit || 'mmol/L',
         min: this._config.min || 1,
-        max: this._config.max || 20,
-        format: this._config.format || '{value:.1f}',  // ← Proper format parameter
+        max: this._config.max || 15.5,
         needle: true,
+        format: this._config.format || '{value:.1f}',
         severity: {
-          green: this._config.green || 4,
+          green: this._config.green || 4.05,
           yellow: this._config.yellow || 10,
           red: this._config.red || 1
         }
@@ -241,6 +285,7 @@ class LibrelinkExtendedGauge extends HTMLElement {
       this._gaugeContainer.appendChild(gaugeElement);
       this._gaugeElement = gaugeElement;
       
+      // Clean up internal styling
       requestAnimationFrame(() => {
         const innerCard = gaugeElement.querySelector('ha-card');
         if (innerCard) {
@@ -255,7 +300,6 @@ class LibrelinkExtendedGauge extends HTMLElement {
             margin: 0 !important;
           `;
         }
-        
       });
       
       if (this._hass) {
