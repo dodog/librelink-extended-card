@@ -100,7 +100,7 @@ show_delta_1min: true
 show_delta_15min: true
 ```
 ## 📸 Screenshots
-<img width="528" height="362" alt="librelink-extended-card-screenshot" src="https://raw.githubusercontent.com/dodog/librelink-extended-card/refs/heads/main/screenshot.png" />
+<img width="535" height="302" alt="librelink-extended-card-screenshot" src="https://raw.githubusercontent.com/dodog/librelink-extended-card/refs/heads/main/screenshot.png" />
 
 
 ##   🔧 Requirements
