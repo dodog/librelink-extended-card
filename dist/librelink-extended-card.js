@@ -11,7 +11,7 @@
  * Usage:
  * type: custom:librelink-extended-card
  * entity: sensor.your_name_measurement
- * language: en (or sk)
+ * language: en (or sk, de, fr, es) - optional, defaults to en
  * show_measurement: true (optional, defaults to true) 
  * show_trend_arrow: true (optional, defaults to true)
  * show_trend_text: true (optional, defaults to true)
@@ -99,6 +99,9 @@ class LibrelinkExtendedCard extends HTMLElement {
         less_than_hour: 'Less than 1 hour',
         one_hour: '1 hour',
         one_day: '1 day',
+        sensor_expired: 'Sensor Expired',
+        no_data: 'No Data',
+        entity_unavailable: 'Sensor Unavailable',
         time_units: {
           hours: 'hours',
           days: 'days'
@@ -114,13 +117,70 @@ class LibrelinkExtendedCard extends HTMLElement {
         less_than_hour: 'Menej ako 1 hodinu',
         one_hour: '1 hodinu',
         one_day: '1 deň',
+        sensor_expired: 'Senzor vypršal',
+        no_data: 'Žiadne dáta',
+        entity_unavailable: 'Senzor nedostupný',
         time_units: {
           hours: 'hodín',
           days: 'dní'
         }
+      },
+      de: {
+        just_now: 'Gerade jetzt',
+        min_ago: (n) => n === 1 ? '1 min ago' : `vor ${n} min`,
+        hour_ago: (n) => n === 1 ? 'vor 1 Stunde' : `vor ${n} Stunden`,
+        day_ago: (n) => n === 1 ? 'vor 1 Tag' : `vor ${n} Tagen`,
+        expired: 'ABGELAUFEN',
+        expires: 'Läuft ab in',
+        less_than_hour: 'Weniger als 1 Stunde',
+        one_hour: '1 Stunde',
+        one_day: '1 Tag',
+        sensor_expired: 'Sensor abgelaufen',
+        no_data: 'Keine Daten',
+        entity_unavailable: 'Sensor nicht verfügbar',
+        time_units: {
+          hours: 'Stunden',
+          days: 'Tage'
+        }
+      },
+      fr: {
+        just_now: 'À l\'instant',
+        min_ago: (n) => n === 1 ? 'il y a 1 min' : `il y a ${n} min`,
+        hour_ago: (n) => n === 1 ? 'il y a 1 heure' : `il y a ${n} heures`,
+        day_ago: (n) => n === 1 ? 'il y a 1 jour' : `il y a ${n} jours`,
+        expired: 'EXPIRÉ',
+        expires: 'Expire dans',
+        less_than_hour: 'Moins d\'1 heure',
+        one_hour: '1 heure',
+        one_day: '1 jour',
+        sensor_expired: 'Capteur expiré',
+        no_data: 'Pas de données',
+        entity_unavailable: 'Capteur indisponible',
+        time_units: {
+          hours: 'heures',
+          days: 'jours'
+        }
+      },
+      es: {
+        just_now: 'Ahora mismo',
+        min_ago: (n) => n === 1 ? 'hace 1 min' : `hace ${n} min`,
+        hour_ago: (n) => n === 1 ? 'hace 1 hora' : `hace ${n} horas`,
+        day_ago: (n) => n === 1 ? 'hace 1 día' : `hace ${n} días`,
+        expired: 'CADUCADO',
+        expires: 'Caduca en',
+        less_than_hour: 'Menos de 1 hora',
+        one_hour: '1 hora',
+        one_day: '1 día',
+        sensor_expired: 'Sensor caducado',
+        no_data: 'Sin datos',
+        entity_unavailable: 'Sensor no disponible',
+        time_units: {
+          hours: 'horas',
+          days: 'días'
+        }
       }
     };
-    return translations[lang] || translations.sk;
+    return translations[lang] || translations.en;
   }
 
   _getSensor(sensorName) {
@@ -189,21 +249,21 @@ class LibrelinkExtendedCard extends HTMLElement {
   }
 
   _getTimestampColor(timestamp) {
-    if (!timestamp) return '#888';
+    if (!timestamp) return 'var(--secondary-text-color, #888)';
     
     try {
       const utcDate = new Date(timestamp);
-      if (isNaN(utcDate.getTime())) return '#888';
+      if (isNaN(utcDate.getTime())) return 'var(--secondary-text-color, #888)';
       
       const now = new Date();
       const diffMs = now - utcDate;
       const diffMinutes = Math.floor(diffMs / 60000);
       
-      if (diffMinutes > 10) return '#FF5252';
-      if (diffMinutes > 5) return '#FFC107';
-      return '#4CAF50';
+      if (diffMinutes > 10) return 'var(--error-color, #FF5252)';
+      if (diffMinutes > 5) return 'var(--warning-color, #FFC107)';
+      return 'var(--success-color, #4CAF50)';
     } catch (e) {
-      return '#888';
+      return 'var(--secondary-text-color, #888)';
     }
   }
 
@@ -219,33 +279,104 @@ class LibrelinkExtendedCard extends HTMLElement {
   }
 
   _getDeltaColor(deltaValue) {
-    if (isNaN(deltaValue)) return '#4CAF50';
-    if (deltaValue > 1) return '#FF5252';
-    if (deltaValue < -1) return '#FF5252';
-    if (deltaValue > 0.3) return '#FFC107';
-    if (deltaValue < -0.3) return '#FFC107';
-    return '#4CAF50';
+    if (isNaN(deltaValue)) return 'var(--secondary-text-color, #aaa)';
+    if (deltaValue > 1) return 'var(--error-color, #FF5252)';
+    if (deltaValue < -1) return 'var(--error-color, #FF5252)';
+    if (deltaValue > 0.3) return 'var(--warning-color, #FFC107)';
+    if (deltaValue < -0.3) return 'var(--warning-color, #FFC107)';
+    return 'var(--success-color, #4CAF50)';
   }
 
   _getGlucoseColor(value) {
     const numValue = parseFloat(value);
-    if (isNaN(numValue)) return '#4CAF50';
-    if (numValue < 4.05) return '#FF0000';
-    if (numValue >= 10) return '#FFC107';
-    return '#4CAF50';
+    if (isNaN(numValue)) return 'var(--secondary-text-color, #888)';
+    if (numValue < 3.9) return 'var(--error-color, #FF0000)';
+    if (numValue >= 10) return 'var(--warning-color, #FFC107)';
+    return 'var(--success-color, #4CAF50)';
+  }
+
+  /**
+   * Get user-friendly error message based on sensor state
+   */
+  _getErrorMessage(glucoseState, expirationState, timestampState) {
+    const t = this._getTranslations();
+    
+    // Check if sensor is expired
+    if (expirationState) {
+      const isExpired = this._isExpired(expirationState.state);
+      if (isExpired) {
+        return t.sensor_expired;
+      }
+    }
+    
+    // Check if entity is unavailable
+    if (!glucoseState || glucoseState.state === 'unavailable') {
+      return t.entity_unavailable;
+    }
+    
+    // Check if there's no data (state is 'unknown' or empty)
+    if (!glucoseState || glucoseState.state === 'unknown' || glucoseState.state === '') {
+      return t.no_data;
+    }
+    
+    // Check if timestamp is too old (more than 30 minutes)
+    if (timestampState) {
+      try {
+        const tsDate = new Date(timestampState.state);
+        if (!isNaN(tsDate.getTime())) {
+          const diffMs = Date.now() - tsDate;
+          if (diffMs > 1800000) { // 30 minutes
+            return t.no_data;
+          }
+        }
+      } catch (e) {
+        // Ignore parsing errors
+      }
+    }
+    
+    return null; // No error, normal state
   }
 
   _render() {
     if (!this._hass || !this._config) return;
 
     const glucoseState = this._hass.states[this._config.entity];
-    if (!glucoseState) {
-      this.innerHTML = `<ha-card>Entity not found: ${this._config.entity}</ha-card>`;
+    const timestampState = this._getSensor('last_measurement_timestamp');
+    const expirationState = this._getSensor('expiration_timestamp');
+
+    // Check for errors
+    const errorMessage = this._getErrorMessage(glucoseState, expirationState, timestampState);
+    if (errorMessage) {
+      this.innerHTML = `
+        <ha-card style="
+          padding: 8px 16px 8px 16px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          background: var(--ha-card-background);
+          border-radius: var(--ha-card-border-radius);
+          box-shadow: var(--ha-card-box-shadow);
+          border: none;
+          min-height: 80px;
+        ">
+          <div style="
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--error-color, #FF5252);
+            text-align: center;
+          ">
+            ${errorMessage}
+          </div>
+        </ha-card>
+      `;
       return;
     }
 
+    // Normal rendering continues...
     const glucoseValue = glucoseState.state;
     const glucoseColor = this._getGlucoseColor(glucoseValue);
+    const t = this._getTranslations();
 
     // Get all sensor data
     const trendArrowState = this._getSensor('glucose_trend_arrow') || this._getSensor('trend_arrow');
@@ -253,8 +384,6 @@ class LibrelinkExtendedCard extends HTMLElement {
     const delta5State = this._getSensor('delta_5min');
     const delta15State = this._getSensor('delta_15min');
     const trendState = this._getSensor('trend');
-    const timestampState = this._getSensor('last_measurement_timestamp');
-    const expirationState = this._getSensor('expiration_timestamp');
 
     const trendArrow = trendArrowState ? trendArrowState.state : '';
     const delta1 = delta1State ? delta1State.state : '0';
@@ -268,7 +397,6 @@ class LibrelinkExtendedCard extends HTMLElement {
     const timestampColor = this._getTimestampColor(timestampRaw);
 
     const isExpired = this._isExpired(expirationRaw);
-    const t = this._getTranslations();
     const expirationDisplay = isExpired 
       ? t.expired 
       : this._formatTimeRemaining(expirationRaw);
@@ -276,7 +404,7 @@ class LibrelinkExtendedCard extends HTMLElement {
     // Get delta based on configuration
     const deltaType = this._config.delta_type || 5;
     let mainDelta = '0';
-    let mainDeltaColor = '#4CAF50';
+    let mainDeltaColor = 'var(--success-color, #4CAF50)';
     
     if (deltaType === 1) {
       mainDelta = delta1;
@@ -295,9 +423,20 @@ class LibrelinkExtendedCard extends HTMLElement {
     // Row 1: Glucose value (if enabled)
     if (this._config.show_measurement !== false) {
       infoLines.push(`
-        <div style="font-size: 64px; font-weight: bold; color: ${glucoseColor}; line-height: 1.2;">
+        <div style="
+          font-size: 64px;
+          font-weight: bold;
+          color: ${glucoseColor};
+          line-height: 1.2;
+          font-family: var(--primary-font-family, 'Open Sans', sans-serif);
+        ">
           ${parseFloat(glucoseValue).toFixed(1)}
-          <span style="font-size: 24px; font-weight: normal; color: #999; margin-left: 4px;">mmol/L</span>
+          <span style="
+            font-size: 24px;
+            font-weight: normal;
+            color: var(--secondary-text-color, #999);
+            margin-left: 4px;
+          ">mmol/L</span>
         </div>
       `);
     }
@@ -306,11 +445,11 @@ class LibrelinkExtendedCard extends HTMLElement {
     let row2Parts = [];
     
     if (this._config.show_trend_arrow !== false && trendArrow) {
-      row2Parts.push(`<span style="font-size: 32px;">${trendArrow}</span>`);
+      row2Parts.push(`<span style="font-size: 32px; color: var(--primary-text-color, white);">${trendArrow}</span>`);
     }
     
     if (this._config.show_trend_text !== false && trendText) {
-      row2Parts.push(`<span style="font-size: 18px; color: #888;">${trendText}</span>`);
+      row2Parts.push(`<span style="font-size: 18px; color: var(--secondary-text-color, #888);">${trendText}</span>`);
     }
     
     if (this._config.show_delta !== false) {
@@ -319,7 +458,12 @@ class LibrelinkExtendedCard extends HTMLElement {
     
     if (row2Parts.length > 0) {
       infoLines.push(`
-        <div style="font-size: 24px; font-weight: bold; color: white; margin-top: ${this._config.show_measurement !== false ? '4px' : '0'};">
+        <div style="
+          font-size: 24px;
+          font-weight: bold;
+          color: var(--primary-text-color, white);
+          margin-top: ${this._config.show_measurement !== false ? '4px' : '0'};
+        ">
           ${row2Parts.join('  ')}
         </div>
       `);
@@ -342,7 +486,12 @@ class LibrelinkExtendedCard extends HTMLElement {
     
     if (secondaryDeltas.length > 0) {
       infoLines.push(`
-        <div style="font-size: 14px; font-weight: normal; color: #888; margin-top: 2px;">
+        <div style="
+          font-size: 14px;
+          font-weight: normal;
+          color: var(--secondary-text-color, #888);
+          margin-top: 2px;
+        ">
           ${secondaryDeltas.join('  ')}
         </div>
       `);
@@ -351,7 +500,12 @@ class LibrelinkExtendedCard extends HTMLElement {
     // Row 3: Timestamp (if enabled)
     if (this._config.show_timestamp !== false) {
       infoLines.push(`
-        <div style="font-size: 16px; font-weight: normal; color: ${timestampColor}; margin-top: 8px;">
+        <div style="
+          font-size: 16px;
+          font-weight: normal;
+          color: ${timestampColor};
+          margin-top: 8px;
+        ">
           ${timestampDisplay}
         </div>
       `);
@@ -359,26 +513,31 @@ class LibrelinkExtendedCard extends HTMLElement {
 
     // Row 4: Expiration (if enabled)
     if (this._config.show_expiration !== false && expirationRaw) {
-      const expColor = isExpired ? '#FF5252' : '#888';
+      const expColor = isExpired ? 'var(--error-color, #FF5252)' : 'var(--secondary-text-color, #888)';
       infoLines.push(`
-        <div style="font-size: 14px; font-weight: normal; color: ${expColor}; margin-top: 2px;">
+        <div style="
+          font-size: 14px;
+          font-weight: normal;
+          color: ${expColor};
+          margin-top: 2px;
+        ">
           ${expirationDisplay}
         </div>
       `);
     }
 
-    // Build the card
+    // Build the card with theme variables
     this.innerHTML = `
       <ha-card style="
-        padding: 1px 6px 3px 6px;
+        padding: 8px 16px 8px 16px;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        background: var(--ha-card-background);
-        border-radius: var(--ha-card-border-radius);
-        box-shadow: var(--ha-card-box-shadow);
-        border: none;
+        background: var(--ha-card-background, #1a1a1a);
+        border-radius: var(--ha-card-border-radius, 12px);
+        box-shadow: var(--ha-card-box-shadow, 0 2px 8px rgba(0,0,0,0.3));
+        border: 1px solid var(--ha-card-border-color, rgba(255,255,255,0.05));
         min-height: ${this._config.show_measurement !== false ? '130px' : '80px'};
       ">
         ${infoLines.join('')}
