@@ -17,7 +17,7 @@ A custom Home Assistant card with trend arrow, delta values, and sensor expirati
 ## 📦 Installation
 
 ### HACS (Recommended)
-1. Add as a custom repository in ![HACS](https://hacs.xyz/):
+1. Add as a custom repository in [HACS](https://hacs.xyz/):
    - HACS → Click on 3 dots top right ⋮ → Custom repositories
    - URL: `https://github.com/dodog/librelink-extended-card`
    - Type: Dashboard
