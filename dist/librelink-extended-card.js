@@ -3,7 +3,8 @@
  * 
  * This card displays glucose data with trend arrow, delta, and timestamp.
  * 
- * Installation:
+ * Install via HACS or 
+ *  Manual Installation:
  * 1. Save this file to /config/www/librelink-extended-card.js
  * 2. Add as resource: Settings → Dashboards → Resources → /local/librelink-extended-card.js
  * 3. Clear browser cache
@@ -11,7 +12,9 @@
  * Usage:
  * type: custom:librelink-extended-card
  * entity: sensor.your_name_measurement
- * language: en (or sk, de, fr, es) - optional, defaults to en
+ * language: en (or sk, de, fr, es) - optional. If omitted, the card follows
+ *   Home Assistant's own UI language and number format automatically
+ *   (Settings → General → Language). Set this only to override HA's setting.
  * show_measurement: true (optional, defaults to true) 
  * show_trend_arrow: true (optional, defaults to true)
  * show_trend_text: true (optional, defaults to true)
@@ -37,7 +40,6 @@ class LibrelinkExtendedCard extends HTMLElement {
       throw new Error('You need to define an entity');
     }
     this._config = {
-      language: 'en',
       show_measurement: true,
       show_trend_arrow: true,
       show_trend_text: true,
@@ -82,8 +84,71 @@ class LibrelinkExtendedCard extends HTMLElement {
     this._render();
   }
 
+  // UI text language: uses the explicit `language:` config option if set,
+  // otherwise follows Home Assistant's own UI language. Falls back to 'en'
+  // if HA's language isn't one we have translations for.
   _getLanguage() {
-    return this._config.language || 'en';
+    if (this._config.language) return this._config.language;
+
+    const hassLanguage =
+      (this._hass && this._hass.locale && this._hass.locale.language) ||
+      (this._hass && this._hass.language) ||
+      'en';
+
+    const supported = ['en', 'sk', 'de', 'fr', 'es'];
+    const base = hassLanguage.split('-')[0].toLowerCase();
+    return supported.includes(base) ? base : 'en';
+  }
+
+  // Decimal/thousands formatting: follows Home Assistant's "Number Format"
+  // setting (Settings → General → Language, or per-user profile).
+  _getNumberFormatOptions() {
+    const locale = this._hass && this._hass.locale;
+    const languageLocale =
+      (locale && locale.language) ||
+      (this._hass && this._hass.language) ||
+      this._getLanguage();
+
+    const numberFormat = locale && locale.number_format;
+
+    switch (numberFormat) {
+      case 'comma_decimal': // 1,234.56
+        return { locale: 'en-US' };
+      case 'decimal_comma': // 1.234,56
+        return { locale: 'de-DE' };
+      case 'space_comma': // 1 234,56
+        return { locale: 'fr-FR' };
+      case 'none': // 1234.56 - no grouping
+        return { locale: 'en-US', useGrouping: false };
+      case 'language':
+      case 'system':
+      default:
+        // Let the browser/HA-selected language decide (this is what gives
+        // Slovak "6,1" vs English "6.1" automatically).
+        return { locale: languageLocale };
+    }
+  }
+
+  // Formats a number the way Home Assistant does
+  _formatNumber(value, { decimals = 1, showSign = false } = {}) {
+    const num = parseFloat(value);
+    if (isNaN(num)) return value;
+
+    const { locale, useGrouping } = this._getNumberFormatOptions();
+    const options = {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals
+    };
+    if (useGrouping !== undefined) options.useGrouping = useGrouping;
+
+    let formatted;
+    try {
+      formatted = num.toLocaleString(locale, options);
+    } catch (e) {
+      // Unknown/invalid locale string - fall back to a safe default
+      formatted = num.toLocaleString('en-US', options);
+    }
+    return (showSign && num > 0) ? `+${formatted}` : formatted;
   }
 
   _getTranslations() {
@@ -430,7 +495,7 @@ class LibrelinkExtendedCard extends HTMLElement {
           line-height: 1.2;
           font-family: var(--primary-font-family, 'Open Sans', sans-serif);
         ">
-          ${parseFloat(glucoseValue).toFixed(1)}
+          ${this._formatNumber(glucoseValue, { decimals: 1 })}
           <span style="
             font-size: 24px;
             font-weight: normal;
@@ -453,7 +518,7 @@ class LibrelinkExtendedCard extends HTMLElement {
     }
     
     if (this._config.show_delta !== false) {
-      row2Parts.push(`<span style="font-size: 24px; color: ${mainDeltaColor};">Δ ${mainDelta}</span>`);
+      row2Parts.push(`<span style="font-size: 24px; color: ${mainDeltaColor};">Δ ${this._formatNumber(mainDelta, { decimals: 1, showSign: true })}</span>`);
     }
     
     if (row2Parts.length > 0) {
@@ -473,15 +538,15 @@ class LibrelinkExtendedCard extends HTMLElement {
     let secondaryDeltas = [];
     if (this._config.show_delta_1min && delta1State) {
       const color = this._getDeltaColor(parseFloat(delta1));
-      secondaryDeltas.push(`<span style="color: ${color};">1m: Δ${delta1}</span>`);
+      secondaryDeltas.push(`<span style="color: ${color};">1m: Δ${this._formatNumber(delta1, { decimals: 1, showSign: true })}</span>`);
     }
     if (this._config.show_delta_5min && delta5State) {
       const color = this._getDeltaColor(parseFloat(delta5));
-      secondaryDeltas.push(`<span style="color: ${color};">5m: Δ${delta5}</span>`);
+      secondaryDeltas.push(`<span style="color: ${color};">5m: Δ${this._formatNumber(delta5, { decimals: 1, showSign: true })}</span>`);
     }
     if (this._config.show_delta_15min && delta15State) {
       const color = this._getDeltaColor(parseFloat(delta15));
-      secondaryDeltas.push(`<span style="color: ${color};">15m: Δ${delta15}</span>`);
+      secondaryDeltas.push(`<span style="color: ${color};">15m: Δ${this._formatNumber(delta15, { decimals: 1, showSign: true })}</span>`);
     }
     
     if (secondaryDeltas.length > 0) {
