@@ -4,7 +4,7 @@
  * This card displays glucose data with trend arrow, delta, and timestamp.
  * 
  * Install via HACS or 
- *  Manual Installation:
+ * Manual Installation:
  * 1. Save this file to /config/www/librelink-extended-card.js
  * 2. Add as resource: Settings → Dashboards → Resources → /local/librelink-extended-card.js
  * 3. Clear browser cache
@@ -25,6 +25,16 @@
  * show_delta_1min: false (optional, show 1min delta as secondary)
  * show_delta_5min: false (optional, show 5min delta as secondary)
  * show_delta_15min: false (optional, show 15min delta as secondary)
+ * unit: mmol/L (optional. Auto-detected from the entity's unit_of_measurement
+ *   if omitted, so mg/dL sensors work automatically. Set this to override it,
+ *   e.g. unit: mg/dL)
+ * decimals: 1 (optional. Auto-detected from the entity's "Display precision"
+ *   setting (Settings → Devices & Services → Entities → your sensor) if
+ *   omitted, falling back to 1 for mmol/L / 0 for mg/dL. Set this to force a
+ *   specific number of decimal places regardless of that setting)
+ * tap_action: { action: more-info } (optional, standard HA action config:
+ *   more-info, navigate, url, call-service, toggle, or none)
+ * hold_action: { action: none } (optional, same options as tap_action)
  */
 
 class LibrelinkExtendedCard extends HTMLElement {
@@ -50,6 +60,8 @@ class LibrelinkExtendedCard extends HTMLElement {
       show_delta_1min: false,
       show_delta_5min: false,
       show_delta_15min: false,
+      tap_action: { action: 'more-info' },
+      hold_action: { action: 'none' },
       ...config
     };
     
@@ -149,6 +161,48 @@ class LibrelinkExtendedCard extends HTMLElement {
       formatted = num.toLocaleString('en-US', options);
     }
     return (showSign && num > 0) ? `+${formatted}` : formatted;
+  }
+
+  // Which unit to display/interpret values as. Defaults to whatever the
+  // glucose sensor itself reports (unit_of_measurement attribute) so mg/dL
+  // setups work automatically; `unit:` in config can force it either way.
+  _getUnit(glucoseState) {
+    if (this._config.unit) return this._config.unit;
+    return (glucoseState && glucoseState.attributes && glucoseState.attributes.unit_of_measurement) || 'mmol/L';
+  }
+
+  _isMgDl(unit) {
+    return /mg\s*\/\s*dl/i.test(unit || '');
+  }
+
+  // Converts a value/delta to its mmol/L equivalent purely for internal
+  // threshold comparisons (color coding), regardless of the unit it's
+  // actually displayed in. This is a straight linear conversion (no offset),
+  // so it's valid for deltas as well as absolute values.
+  _normalizeToMmol(value, unit) {
+    return this._isMgDl(unit) ? value / 18.0182 : value;
+  }
+
+  // How many decimal places to show for a given entity. Priority:
+  // 1. Explicit `decimals:` in card config (always wins)
+  // 2. The "Display precision" the user set for that entity in
+  //    Settings → Devices & Services → Entities (respects hass.entities,
+  //    same source of truth the rest of the HA frontend uses)
+  // 3. A sensible default based on the unit (mg/dL is usually whole
+  //    numbers, mmol/L usually has 1 decimal)
+  _getDecimals(stateObj, unit) {
+    if (this._config.decimals !== undefined) return this._config.decimals;
+
+    try {
+      const entry = stateObj && this._hass && this._hass.entities && this._hass.entities[stateObj.entity_id];
+      if (entry && typeof entry.display_precision === 'number') {
+        return entry.display_precision;
+      }
+    } catch (e) {
+      // fall through to unit-based default
+    }
+
+    return this._isMgDl(unit) ? 0 : 1;
   }
 
   _getTranslations() {
@@ -343,20 +397,22 @@ class LibrelinkExtendedCard extends HTMLElement {
     }
   }
 
-  _getDeltaColor(deltaValue) {
+  _getDeltaColor(deltaValue, unit) {
     if (isNaN(deltaValue)) return 'var(--secondary-text-color, #aaa)';
-    if (deltaValue > 1) return 'var(--error-color, #FF5252)';
-    if (deltaValue < -1) return 'var(--error-color, #FF5252)';
-    if (deltaValue > 0.3) return 'var(--warning-color, #FFC107)';
-    if (deltaValue < -0.3) return 'var(--warning-color, #FFC107)';
+    const mmolDelta = this._normalizeToMmol(deltaValue, unit);
+    if (mmolDelta > 1) return 'var(--error-color, #FF5252)';
+    if (mmolDelta < -1) return 'var(--error-color, #FF5252)';
+    if (mmolDelta > 0.3) return 'var(--warning-color, #FFC107)';
+    if (mmolDelta < -0.3) return 'var(--warning-color, #FFC107)';
     return 'var(--success-color, #4CAF50)';
   }
 
-  _getGlucoseColor(value) {
+  _getGlucoseColor(value, unit) {
     const numValue = parseFloat(value);
     if (isNaN(numValue)) return 'var(--secondary-text-color, #888)';
-    if (numValue < 3.9) return 'var(--error-color, #FF0000)';
-    if (numValue >= 10) return 'var(--warning-color, #FFC107)';
+    const mmolValue = this._normalizeToMmol(numValue, unit);
+    if (mmolValue < 3.9) return 'var(--error-color, #FF0000)';
+    if (mmolValue >= 10) return 'var(--warning-color, #FFC107)';
     return 'var(--success-color, #4CAF50)';
   }
 
@@ -402,12 +458,112 @@ class LibrelinkExtendedCard extends HTMLElement {
     return null; // No error, normal state
   }
 
+  // --- Tap / hold action handling -----------------------------------------
+
+  _attachActionListeners(cardEl) {
+    if (!cardEl) return;
+
+    const tapAction = this._config.tap_action || { action: 'more-info' };
+    const holdAction = this._config.hold_action || { action: 'none' };
+
+    if (tapAction.action !== 'none' || holdAction.action !== 'none') {
+      cardEl.style.cursor = 'pointer';
+    }
+
+    let holdTimeout = null;
+    let holdFired = false;
+
+    const clearHold = () => {
+      if (holdTimeout) {
+        clearTimeout(holdTimeout);
+        holdTimeout = null;
+      }
+    };
+
+    cardEl.addEventListener('pointerdown', () => {
+      holdFired = false;
+      clearHold();
+      holdTimeout = setTimeout(() => {
+        holdFired = true;
+        this._handleAction(holdAction);
+      }, 500);
+    });
+
+    cardEl.addEventListener('pointerup', () => {
+      clearHold();
+      if (!holdFired) {
+        this._handleAction(tapAction);
+      }
+    });
+
+    cardEl.addEventListener('pointerleave', clearHold);
+    cardEl.addEventListener('pointercancel', clearHold);
+
+    // Long-press on touch devices would otherwise also open a context menu
+    if (holdAction.action !== 'none') {
+      cardEl.addEventListener('contextmenu', (e) => e.preventDefault());
+    }
+  }
+
+  _handleAction(actionConfig) {
+    if (!actionConfig || actionConfig.action === 'none') return;
+    const entityId = actionConfig.entity || this._config.entity;
+
+    switch (actionConfig.action) {
+      case 'more-info':
+        this.dispatchEvent(new CustomEvent('hass-more-info', {
+          bubbles: true,
+          composed: true,
+          detail: { entityId }
+        }));
+        break;
+
+      case 'navigate':
+        if (actionConfig.navigation_path) {
+          history.pushState(null, '', actionConfig.navigation_path);
+          this.dispatchEvent(new CustomEvent('location-changed', {
+            bubbles: true,
+            composed: true,
+            detail: { replace: !!actionConfig.navigation_replace }
+          }));
+        }
+        break;
+
+      case 'url':
+        if (actionConfig.url_path) {
+          window.open(actionConfig.url_path, actionConfig.new_tab === false ? '_self' : '_blank');
+        }
+        break;
+
+      case 'call-service':
+      case 'perform-action': {
+        const serviceStr = actionConfig.service || actionConfig.perform_action || '';
+        const [domain, service] = serviceStr.split('.');
+        if (domain && service && this._hass) {
+          this._hass.callService(domain, service, actionConfig.service_data || actionConfig.data || {}, actionConfig.target);
+        }
+        break;
+      }
+
+      case 'toggle':
+        if (this._hass && entityId) {
+          this._hass.callService('homeassistant', 'toggle', { entity_id: entityId });
+        }
+        break;
+
+      default:
+        break;
+    }
+  }
+
   _render() {
     if (!this._hass || !this._config) return;
 
     const glucoseState = this._hass.states[this._config.entity];
     const timestampState = this._getSensor('last_measurement_timestamp');
     const expirationState = this._getSensor('expiration_timestamp');
+
+    const unit = this._getUnit(glucoseState);
 
     // Check for errors
     const errorMessage = this._getErrorMessage(glucoseState, expirationState, timestampState);
@@ -435,12 +591,14 @@ class LibrelinkExtendedCard extends HTMLElement {
           </div>
         </ha-card>
       `;
+      this._attachActionListeners(this.querySelector('ha-card'));
       return;
     }
 
     // Normal rendering continues...
     const glucoseValue = glucoseState.state;
-    const glucoseColor = this._getGlucoseColor(glucoseValue);
+    const glucoseDecimals = this._getDecimals(glucoseState, unit);
+    const glucoseColor = this._getGlucoseColor(glucoseValue, unit);
     const t = this._getTranslations();
 
     // Get all sensor data
@@ -469,18 +627,23 @@ class LibrelinkExtendedCard extends HTMLElement {
     // Get delta based on configuration
     const deltaType = this._config.delta_type || 5;
     let mainDelta = '0';
+    let mainDeltaState = null;
     let mainDeltaColor = 'var(--success-color, #4CAF50)';
     
     if (deltaType === 1) {
       mainDelta = delta1;
-      mainDeltaColor = this._getDeltaColor(parseFloat(delta1));
+      mainDeltaState = delta1State;
+      mainDeltaColor = this._getDeltaColor(parseFloat(delta1), unit);
     } else if (deltaType === 15) {
       mainDelta = delta15;
-      mainDeltaColor = this._getDeltaColor(parseFloat(delta15));
+      mainDeltaState = delta15State;
+      mainDeltaColor = this._getDeltaColor(parseFloat(delta15), unit);
     } else {
       mainDelta = delta5;
-      mainDeltaColor = this._getDeltaColor(parseFloat(delta5));
+      mainDeltaState = delta5State;
+      mainDeltaColor = this._getDeltaColor(parseFloat(delta5), unit);
     }
+    const mainDeltaDecimals = this._getDecimals(mainDeltaState, unit);
 
     // Build info sections
     let infoLines = [];
@@ -495,13 +658,13 @@ class LibrelinkExtendedCard extends HTMLElement {
           line-height: 1.2;
           font-family: var(--primary-font-family, 'Open Sans', sans-serif);
         ">
-          ${this._formatNumber(glucoseValue, { decimals: 1 })}
+          ${this._formatNumber(glucoseValue, { decimals: glucoseDecimals })}
           <span style="
             font-size: 24px;
             font-weight: normal;
             color: var(--secondary-text-color, #999);
             margin-left: 4px;
-          ">mmol/L</span>
+          ">${unit}</span>
         </div>
       `);
     }
@@ -518,7 +681,7 @@ class LibrelinkExtendedCard extends HTMLElement {
     }
     
     if (this._config.show_delta !== false) {
-      row2Parts.push(`<span style="font-size: 24px; color: ${mainDeltaColor};">Δ ${this._formatNumber(mainDelta, { decimals: 1, showSign: true })}</span>`);
+      row2Parts.push(`<span style="font-size: 24px; color: ${mainDeltaColor};">Δ ${this._formatNumber(mainDelta, { decimals: mainDeltaDecimals, showSign: true })}</span>`);
     }
     
     if (row2Parts.length > 0) {
@@ -537,16 +700,19 @@ class LibrelinkExtendedCard extends HTMLElement {
     // Row 2b: Secondary deltas (if configured)
     let secondaryDeltas = [];
     if (this._config.show_delta_1min && delta1State) {
-      const color = this._getDeltaColor(parseFloat(delta1));
-      secondaryDeltas.push(`<span style="color: ${color};">1m: Δ${this._formatNumber(delta1, { decimals: 1, showSign: true })}</span>`);
+      const color = this._getDeltaColor(parseFloat(delta1), unit);
+      const decimals = this._getDecimals(delta1State, unit);
+      secondaryDeltas.push(`<span style="color: ${color};">1m: Δ${this._formatNumber(delta1, { decimals, showSign: true })}</span>`);
     }
     if (this._config.show_delta_5min && delta5State) {
-      const color = this._getDeltaColor(parseFloat(delta5));
-      secondaryDeltas.push(`<span style="color: ${color};">5m: Δ${this._formatNumber(delta5, { decimals: 1, showSign: true })}</span>`);
+      const color = this._getDeltaColor(parseFloat(delta5), unit);
+      const decimals = this._getDecimals(delta5State, unit);
+      secondaryDeltas.push(`<span style="color: ${color};">5m: Δ${this._formatNumber(delta5, { decimals, showSign: true })}</span>`);
     }
     if (this._config.show_delta_15min && delta15State) {
-      const color = this._getDeltaColor(parseFloat(delta15));
-      secondaryDeltas.push(`<span style="color: ${color};">15m: Δ${this._formatNumber(delta15, { decimals: 1, showSign: true })}</span>`);
+      const color = this._getDeltaColor(parseFloat(delta15), unit);
+      const decimals = this._getDecimals(delta15State, unit);
+      secondaryDeltas.push(`<span style="color: ${color};">15m: Δ${this._formatNumber(delta15, { decimals, showSign: true })}</span>`);
     }
     
     if (secondaryDeltas.length > 0) {
@@ -608,6 +774,7 @@ class LibrelinkExtendedCard extends HTMLElement {
         ${infoLines.join('')}
       </ha-card>
     `;
+    this._attachActionListeners(this.querySelector('ha-card'));
   }
 }
 
