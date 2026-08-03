@@ -37,13 +37,14 @@ A custom Home Assistant card with trend arrow, delta values, and sensor expirati
 
 ```
 type: custom:librelink-extended-card
-entity: sensor.john_doe_measurement
+entity: sensor.name_surname_measurement
 language: en
 ```
 ### Full Configuration
 ```
 type: custom:librelink-extended-card
-entity: sensor.john_doe_measurement
+entity: sensor.name_surname_measurement
+show_measurement: true          # Shows glucose measurement (optional) 
 language: en                    # en (or sk, de, fr, es) - optional
 show_trend_arrow: true          # Show trend arrow (↑, ↓, →)
 show_trend_text: true           # Show trend text (STABLE, Falling, Rising)
@@ -54,6 +55,10 @@ delta_type: 5                   # 1, 5, or 15 (default: 5)
 show_delta_1min: false          # Show 1min delta as secondary
 show_delta_5min: false          # Show 5min delta as secondary
 show_delta_15min: false         # Show 15min delta as secondary
+unit: mmol/L                    # Auto-detected from the entity's unit_of_measurement (optional)
+decimals: 1                     # Number of decimal places (optional, auto-detected from the entity)
+tap_action:                     # (optional, standard HA action config:
+hold_action: { action: none }   # (optional, same options as tap_action)
 ```
 ### ⚙️ Configuration Options
 
@@ -71,6 +76,7 @@ show_delta_15min: false         # Show 15min delta as secondary
 | show_delta_1min | boolean | false | Show 1min delta as secondary |
 | show_delta_5min | boolean | false | Show 5min delta as secondary |
 | show_delta_15min | boolean | false | Show 15min delta as secondary |
+              
 
 
 ### 🎯 Examples
