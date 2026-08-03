@@ -183,26 +183,70 @@ class LibrelinkExtendedCard extends HTMLElement {
     return this._isMgDl(unit) ? value / 18.0182 : value;
   }
 
-  // How many decimal places to show for a given entity. Priority:
-  // 1. Explicit `decimals:` in card config (always wins)
-  // 2. The "Display precision" the user set for that entity in
-  //    Settings → Devices & Services → Entities (respects hass.entities,
-  //    same source of truth the rest of the HA frontend uses)
-  // 3. A sensible default based on the unit (mg/dL is usually whole
-  //    numbers, mmol/L usually has 1 decimal)
-  _getDecimals(stateObj, unit) {
+  // Fallback decimal count, used only when hass.formatEntityState() isn't
+  // available (older HA) or fails. A sensible default based on the unit
+  // (mg/dL is usually whole numbers, mmol/L usually has 1 decimal).
+  _getDecimals(unit) {
     if (this._config.decimals !== undefined) return this._config.decimals;
+    return this._isMgDl(unit) ? 0 : 1;
+  }
 
+  // Figures out which characters the current locale uses for the decimal
+  // point and thousands grouping, so we can reliably strip the trailing
+  // unit text off whatever hass.formatEntityState() returns, without
+  // assuming "." or "," specifically (some locales use neither).
+  _getNumberSeparators(locale) {
     try {
-      const entry = stateObj && this._hass && this._hass.entities && this._hass.entities[stateObj.entity_id];
-      if (entry && typeof entry.display_precision === 'number') {
-        return entry.display_precision;
+      const parts = new Intl.NumberFormat(locale, { minimumFractionDigits: 1 }).formatToParts(1234.5);
+      let decimal = '.';
+      let group = ',';
+      for (const part of parts) {
+        if (part.type === 'decimal') decimal = part.value;
+        if (part.type === 'group') group = part.value;
       }
+      return { decimal, group };
     } catch (e) {
-      // fall through to unit-based default
+      return { decimal: '.', group: ',' };
+    }
+  }
+
+  _extractNumericPrefix(formatted, locale) {
+    const { decimal, group } = this._getNumberSeparators(locale);
+    const esc = (c) => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const pattern = new RegExp(`^[+\\-−]?[\\d${esc(group)}\\s]*(?:${esc(decimal)}\\d+)?`);
+    const match = formatted.match(pattern);
+    return match ? match[0].trim() : formatted.trim();
+  }
+
+  // Formats a value the same way Home Assistant's own built-in cards do. This is the
+  // only reliable way to get the exact per-entity "Display precision" a
+  // user configured .Falls back to manual formatting (unit-based decimal guess) if
+  // formatEntityState isn't available or the entity doesn't exist.
+  _formatEntityValue(stateObj, rawValue, { showSign = false } = {}) {
+    const value = stateObj ? stateObj.state : rawValue;
+    const unit = this._getUnit(this._hass.states[this._config.entity]);
+
+    // Explicit override always wins, regardless of HA's own setting
+    if (this._config.decimals !== undefined) {
+      return this._formatNumber(value, { decimals: this._config.decimals, showSign });
     }
 
-    return this._isMgDl(unit) ? 0 : 1;
+    if (stateObj && this._hass && typeof this._hass.formatEntityState === 'function') {
+      try {
+        const full = this._hass.formatEntityState(stateObj);
+        const { locale } = this._getNumberFormatOptions();
+        let numeric = this._extractNumericPrefix(full, locale);
+        const rawNum = parseFloat(value);
+        if (numeric && showSign && !isNaN(rawNum) && rawNum > 0 && !numeric.startsWith('+')) {
+          numeric = `+${numeric}`;
+        }
+        if (numeric) return numeric;
+      } catch (e) {
+        // fall through to manual formatting
+      }
+    }
+
+    return this._formatNumber(value, { decimals: this._getDecimals(unit), showSign });
   }
 
   _getTranslations() {
@@ -233,7 +277,7 @@ class LibrelinkExtendedCard extends HTMLElement {
         day_ago: (n) => n === 1 ? 'Pred 1 dňom' : `Pred ${n} dňami`,
         expired: 'EXPIROVAL',
         expires: 'Exspiruje o',
-        less_than_hour: 'Menej ako 1 hodinu',
+        less_than_hour: 'menej ako 1 hodinu',
         one_hour: '1 hodinu',
         one_day: '1 deň',
         sensor_expired: 'Senzor vypršal',
@@ -597,7 +641,6 @@ class LibrelinkExtendedCard extends HTMLElement {
 
     // Normal rendering continues...
     const glucoseValue = glucoseState.state;
-    const glucoseDecimals = this._getDecimals(glucoseState, unit);
     const glucoseColor = this._getGlucoseColor(glucoseValue, unit);
     const t = this._getTranslations();
 
@@ -643,7 +686,6 @@ class LibrelinkExtendedCard extends HTMLElement {
       mainDeltaState = delta5State;
       mainDeltaColor = this._getDeltaColor(parseFloat(delta5), unit);
     }
-    const mainDeltaDecimals = this._getDecimals(mainDeltaState, unit);
 
     // Build info sections
     let infoLines = [];
@@ -658,7 +700,7 @@ class LibrelinkExtendedCard extends HTMLElement {
           line-height: 1.2;
           font-family: var(--primary-font-family, 'Open Sans', sans-serif);
         ">
-          ${this._formatNumber(glucoseValue, { decimals: glucoseDecimals })}
+          ${this._formatEntityValue(glucoseState, glucoseValue)}
           <span style="
             font-size: 24px;
             font-weight: normal;
@@ -681,7 +723,7 @@ class LibrelinkExtendedCard extends HTMLElement {
     }
     
     if (this._config.show_delta !== false) {
-      row2Parts.push(`<span style="font-size: 24px; color: ${mainDeltaColor};">Δ ${this._formatNumber(mainDelta, { decimals: mainDeltaDecimals, showSign: true })}</span>`);
+      row2Parts.push(`<span style="font-size: 24px; color: ${mainDeltaColor};">Δ ${this._formatEntityValue(mainDeltaState, mainDelta, { showSign: true })}</span>`);
     }
     
     if (row2Parts.length > 0) {
@@ -701,18 +743,15 @@ class LibrelinkExtendedCard extends HTMLElement {
     let secondaryDeltas = [];
     if (this._config.show_delta_1min && delta1State) {
       const color = this._getDeltaColor(parseFloat(delta1), unit);
-      const decimals = this._getDecimals(delta1State, unit);
-      secondaryDeltas.push(`<span style="color: ${color};">1m: Δ${this._formatNumber(delta1, { decimals, showSign: true })}</span>`);
+      secondaryDeltas.push(`<span style="color: ${color};">1m: Δ${this._formatEntityValue(delta1State, delta1, { showSign: true })}</span>`);
     }
     if (this._config.show_delta_5min && delta5State) {
       const color = this._getDeltaColor(parseFloat(delta5), unit);
-      const decimals = this._getDecimals(delta5State, unit);
-      secondaryDeltas.push(`<span style="color: ${color};">5m: Δ${this._formatNumber(delta5, { decimals, showSign: true })}</span>`);
+      secondaryDeltas.push(`<span style="color: ${color};">5m: Δ${this._formatEntityValue(delta5State, delta5, { showSign: true })}</span>`);
     }
     if (this._config.show_delta_15min && delta15State) {
       const color = this._getDeltaColor(parseFloat(delta15), unit);
-      const decimals = this._getDecimals(delta15State, unit);
-      secondaryDeltas.push(`<span style="color: ${color};">15m: Δ${this._formatNumber(delta15, { decimals, showSign: true })}</span>`);
+      secondaryDeltas.push(`<span style="color: ${color};">15m: Δ${this._formatEntityValue(delta15State, delta15, { showSign: true })}</span>`);
     }
     
     if (secondaryDeltas.length > 0) {
