@@ -1,5 +1,6 @@
 /**
  * Librelink Extended Card for Home Assistant
+ * https://github.com/dodog/librelink-extended-card
  * 
  * This card displays glucose data with trend arrow, delta, and timestamp.
  * 
@@ -8,6 +9,10 @@
  * 1. Save this file to /config/www/librelink-extended-card.js
  * 2. Add as resource: Settings → Dashboards → Resources → /local/librelink-extended-card.js
  * 3. Clear browser cache
+ *
+ * You can configure this card either through the visual editor (Edit
+ * Dashboard → Add Card → "Librelink Extended Card", or Edit on an existing
+ * card) or by hand in YAML using the options below.
  * 
  * Usage:
  * type: custom:librelink-extended-card
@@ -187,7 +192,7 @@ class LibrelinkExtendedCard extends HTMLElement {
   // available (older HA) or fails. A sensible default based on the unit
   // (mg/dL is usually whole numbers, mmol/L usually has 1 decimal).
   _getDecimals(unit) {
-    if (this._config.decimals !== undefined) return this._config.decimals;
+    if (this._config.decimals !== undefined && this._config.decimals !== null) return this._config.decimals;
     return this._isMgDl(unit) ? 0 : 1;
   }
 
@@ -218,16 +223,18 @@ class LibrelinkExtendedCard extends HTMLElement {
     return match ? match[0].trim() : formatted.trim();
   }
 
-  // Formats a value the same way Home Assistant's own built-in cards do. This is the
+  // Formats a value the same way Home Assistant's own built-in cards do,
+  // by delegating to hass.formatEntityState() when available - this is the
   // only reliable way to get the exact per-entity "Display precision" a
-  // user configured .Falls back to manual formatting (unit-based decimal guess) if
+  // user configured, since that data isn't otherwise exposed to custom
+  // cards. Falls back to manual formatting (unit-based decimal guess) if
   // formatEntityState isn't available or the entity doesn't exist.
   _formatEntityValue(stateObj, rawValue, { showSign = false } = {}) {
     const value = stateObj ? stateObj.state : rawValue;
     const unit = this._getUnit(this._hass.states[this._config.entity]);
 
     // Explicit override always wins, regardless of HA's own setting
-    if (this._config.decimals !== undefined) {
+    if (this._config.decimals !== undefined && this._config.decimals !== null) {
       return this._formatNumber(value, { decimals: this._config.decimals, showSign });
     }
 
@@ -815,9 +822,200 @@ class LibrelinkExtendedCard extends HTMLElement {
     `;
     this._attachActionListeners(this.querySelector('ha-card'));
   }
+
+  static getConfigElement() {
+    return document.createElement('librelink-extended-card-editor');
+  }
+
+  static getStubConfig() {
+    return {
+      entity: '',
+      show_measurement: true,
+      show_trend_arrow: true,
+      show_trend_text: true,
+      show_delta: true,
+      show_timestamp: true,
+      show_expiration: true,
+      delta_type: 5,
+      show_delta_1min: false,
+      show_delta_5min: false,
+      show_delta_15min: false,
+      tap_action: { action: 'more-info' },
+      hold_action: { action: 'none' }
+    };
+  }
 }
 
 // Register the custom element
 if (!customElements.get('librelink-extended-card')) {
   customElements.define('librelink-extended-card', LibrelinkExtendedCard);
+}
+
+
+// Visual editor for the card.
+class LibrelinkExtendedCardEditor extends HTMLElement {
+  setConfig(config) {
+    this._config = { ...config };
+    this._renderForm();
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    if (this._form) {
+      this._form.hass = hass;
+    } else {
+      this._renderForm();
+    }
+  }
+
+  get _schema() {
+    return [
+      { name: 'entity', required: true, selector: { entity: { domain: 'sensor' } } },
+      {
+        name: 'unit',
+        selector: {
+          select: {
+            mode: 'dropdown',
+            options: [
+              { value: '', label: 'Auto (from sensor)' },
+              { value: 'mmol/L', label: 'mmol/L' },
+              { value: 'mg/dL', label: 'mg/dL' }
+            ]
+          }
+        }
+      },
+      {
+        name: 'language',
+        selector: {
+          select: {
+            mode: 'dropdown',
+            options: [
+              { value: '', label: 'Auto (match Home Assistant)' },
+              { value: 'en', label: 'English' },
+              { value: 'sk', label: 'Slovenčina' },
+              { value: 'de', label: 'Deutsch' },
+              { value: 'fr', label: 'Français' },
+              { value: 'es', label: 'Español' }
+            ]
+          }
+        }
+      },
+      { name: 'decimals', selector: { number: { min: 0, max: 3, mode: 'box' } } },
+      {
+        name: 'delta_type',
+        selector: {
+          select: {
+            mode: 'dropdown',
+            options: [
+              { value: '1', label: '1 minute' },
+              { value: '5', label: '5 minutes' },
+              { value: '15', label: '15 minutes' }
+            ]
+          }
+        }
+      },
+      { name: 'show_measurement', selector: { boolean: {} } },
+      { name: 'show_trend_arrow', selector: { boolean: {} } },
+      { name: 'show_trend_text', selector: { boolean: {} } },
+      { name: 'show_delta', selector: { boolean: {} } },
+      { name: 'show_timestamp', selector: { boolean: {} } },
+      { name: 'show_expiration', selector: { boolean: {} } },
+      { name: 'show_delta_1min', selector: { boolean: {} } },
+      { name: 'show_delta_5min', selector: { boolean: {} } },
+      { name: 'show_delta_15min', selector: { boolean: {} } },
+      { name: 'tap_action', selector: { ui_action: {} } },
+      { name: 'hold_action', selector: { ui_action: {} } }
+    ];
+  }
+
+  _computeLabel(schema) {
+    const labels = {
+      entity: 'Glucose entity',
+      unit: 'Unit',
+      language: 'Language',
+      decimals: 'Decimal places (override)',
+      delta_type: 'Main delta window',
+      show_measurement: 'Show measurement',
+      show_trend_arrow: 'Show trend arrow',
+      show_trend_text: 'Show trend text',
+      show_delta: 'Show main delta',
+      show_timestamp: 'Show timestamp',
+      show_expiration: 'Show sensor expiration',
+      show_delta_1min: 'Show 1 min delta',
+      show_delta_5min: 'Show 5 min delta',
+      show_delta_15min: 'Show 15 min delta',
+      tap_action: 'Tap action',
+      hold_action: 'Hold action'
+    };
+    return labels[schema.name] || schema.name;
+  }
+
+  _computeHelper(schema) {
+    if (schema.name === 'decimals') {
+      return "Leave blank to follow the entity's own Display Precision setting";
+    }
+    return undefined;
+  }
+
+  _renderForm() {
+    if (!this._hass || !this._config) return;
+
+    this.innerHTML = '';
+    const form = document.createElement('ha-form');
+    form.hass = this._hass;
+
+    // ha-form expects real values for the fields it renders; map our
+    // "unset means auto" config (undefined/missing) to '' for the select
+    // fields, and delta_type to a string since the select options are strings.
+    form.data = {
+      ...this._config,
+      unit: this._config.unit || '',
+      language: this._config.language || '',
+      delta_type: String(this._config.delta_type || 5)
+    };
+
+    form.schema = this._schema;
+    form.computeLabel = this._computeLabel.bind(this);
+    form.computeHelper = this._computeHelper.bind(this);
+
+    form.addEventListener('value-changed', (ev) => {
+      ev.stopPropagation();
+      const newConfig = { ...ev.detail.value };
+
+      // Convert the string-backed select back to a number
+      newConfig.delta_type = parseInt(newConfig.delta_type, 10) || 5;
+
+      // '' means "auto" - drop the key entirely so the card's own
+      // auto-detection logic takes over instead of storing an empty string
+      if (newConfig.unit === '') delete newConfig.unit;
+      if (newConfig.language === '') delete newConfig.language;
+      if (newConfig.decimals === null || newConfig.decimals === undefined || newConfig.decimals === '') {
+        delete newConfig.decimals;
+      }
+
+      this._config = newConfig;
+      this.dispatchEvent(new CustomEvent('config-changed', {
+        detail: { config: newConfig },
+        bubbles: true,
+        composed: true
+      }));
+    });
+
+    this.appendChild(form);
+    this._form = form;
+  }
+}
+
+if (!customElements.get('librelink-extended-card-editor')) {
+  customElements.define('librelink-extended-card-editor', LibrelinkExtendedCardEditor);
+}
+
+// Registers the card with HA Add Card picker
+window.customCards = window.customCards || [];
+if (!window.customCards.some((c) => c.type === 'librelink-extended-card')) {
+  window.customCards.push({
+    type: 'librelink-extended-card',
+    name: 'Librelink Extended Card',
+    description: 'Glucose reading with trend arrow, delta, timestamp, and sensor expiration.'
+  });
 }
