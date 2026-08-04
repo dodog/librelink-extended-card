@@ -21,6 +21,8 @@
  *   Home Assistant's own UI language and number format automatically
  *   (Settings → General → Language). Set this only to override HA's setting.
  * show_measurement: true (optional, defaults to true) 
+ * show_unit: true (optional, defaults to true. Set to false to hide the
+ *   mmol/L / mg/dL label next to the measurement)
  * show_trend_arrow: true (optional, defaults to true)
  * show_trend_text: true (optional, defaults to true)
  * show_delta: true (optional, defaults to true)
@@ -56,6 +58,7 @@ class LibrelinkExtendedCard extends HTMLElement {
     }
     this._config = {
       show_measurement: true,
+      show_unit: true,
       show_trend_arrow: true,
       show_trend_text: true,
       show_delta: true,
@@ -708,12 +711,13 @@ class LibrelinkExtendedCard extends HTMLElement {
           font-family: var(--primary-font-family, 'Open Sans', sans-serif);
         ">
           ${this._formatEntityValue(glucoseState, glucoseValue)}
+          ${this._config.show_unit !== false ? `
           <span style="
             font-size: 24px;
             font-weight: normal;
             color: var(--secondary-text-color, #999);
             margin-left: 4px;
-          ">${unit}</span>
+          ">${unit}</span>` : ''}
         </div>
       `);
     }
@@ -831,6 +835,7 @@ class LibrelinkExtendedCard extends HTMLElement {
     return {
       entity: '',
       show_measurement: true,
+      show_unit: true,
       show_trend_arrow: true,
       show_trend_text: true,
       show_delta: true,
@@ -850,7 +855,6 @@ class LibrelinkExtendedCard extends HTMLElement {
 if (!customElements.get('librelink-extended-card')) {
   customElements.define('librelink-extended-card', LibrelinkExtendedCard);
 }
-
 
 // Visual editor for the card.
 class LibrelinkExtendedCardEditor extends HTMLElement {
@@ -915,6 +919,7 @@ class LibrelinkExtendedCardEditor extends HTMLElement {
         }
       },
       { name: 'show_measurement', selector: { boolean: {} } },
+      { name: 'show_unit', selector: { boolean: {} } },
       { name: 'show_trend_arrow', selector: { boolean: {} } },
       { name: 'show_trend_text', selector: { boolean: {} } },
       { name: 'show_delta', selector: { boolean: {} } },
@@ -936,6 +941,7 @@ class LibrelinkExtendedCardEditor extends HTMLElement {
       decimals: 'Decimal places (override)',
       delta_type: 'Main delta window',
       show_measurement: 'Show measurement',
+      show_unit: 'Show unit (mmol/L, mg/dL)',
       show_trend_arrow: 'Show trend arrow',
       show_trend_text: 'Show trend text',
       show_delta: 'Show main delta',
