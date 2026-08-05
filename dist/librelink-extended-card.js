@@ -856,6 +856,152 @@ if (!customElements.get('librelink-extended-card')) {
   customElements.define('librelink-extended-card', LibrelinkExtendedCard);
 }
 
+/**
+ * Text shown in the visual editor itself (field labels, helper text, and
+ * select option labels). Kept separate from the card's own runtime
+ * translations since the editor is a different custom element instance.
+ */
+const EDITOR_TRANSLATIONS = {
+  en: {
+    entity: 'Glucose entity',
+    unit: 'Unit',
+    unit_auto: 'Auto (from sensor)',
+    language: 'Language',
+    language_auto: 'Auto (match Home Assistant)',
+    decimals: 'Decimal places (override)',
+    decimals_helper: "Leave blank to follow the entity's own Display Precision setting",
+    delta_type: 'Main delta window',
+    delta_1min: '1 minute',
+    delta_5min: '5 minutes',
+    delta_15min: '15 minutes',
+    show_measurement: 'Show measurement',
+    show_unit: 'Show unit (mmol/L, mg/dL)',
+    show_trend_arrow: 'Show trend arrow',
+    show_trend_text: 'Show trend text',
+    show_delta: 'Show main delta',
+    show_timestamp: 'Show timestamp',
+    show_expiration: 'Show sensor expiration',
+    show_delta_1min: 'Show 1 min delta',
+    show_delta_5min: 'Show 5 min delta',
+    show_delta_15min: 'Show 15 min delta',
+    tap_action: 'Tap action',
+    hold_action: 'Hold action'
+  },
+  sk: {
+    entity: 'Entita glukózy',
+    unit: 'Jednotka',
+    unit_auto: 'Automaticky (podľa senzora)',
+    language: 'Jazyk',
+    language_auto: 'Automaticky (podľa Home Assistant)',
+    decimals: 'Počet desatinných miest (prepísať)',
+    decimals_helper: 'Nechajte prázdne pre použitie nastavenia danej entity',
+    delta_type: 'Hlavné okno rozdielu',
+    delta_1min: '1 minúta',
+    delta_5min: '5 minút',
+    delta_15min: '15 minút',
+    show_measurement: 'Zobraziť nameranú hodnotu',
+    show_unit: 'Zobraziť jednotku (mmol/L, mg/dL)',
+    show_trend_arrow: 'Zobraziť šípku trendu',
+    show_trend_text: 'Zobraziť text trendu',
+    show_delta: 'Zobraziť hlavný rozdiel',
+    show_timestamp: 'Zobraziť čas merania',
+    show_expiration: 'Zobraziť expiráciu senzora',
+    show_delta_1min: 'Zobraziť 1-min rozdiel',
+    show_delta_5min: 'Zobraziť 5-min rozdiel',
+    show_delta_15min: 'Zobraziť 15-min rozdiel',
+    tap_action: 'Akcia po ťuknutí',
+    hold_action: 'Akcia po podržaní'
+  },
+  de: {
+    entity: 'Glukose-Entität',
+    unit: 'Einheit',
+    unit_auto: 'Automatisch (vom Sensor)',
+    language: 'Sprache',
+    language_auto: 'Automatisch (wie Home Assistant)',
+    decimals: 'Dezimalstellen (überschreiben)',
+    decimals_helper: 'Leer lassen, um die Anzeigepräzision der Entität zu verwenden',
+    delta_type: 'Hauptdelta-Fenster',
+    delta_1min: '1 Minute',
+    delta_5min: '5 Minuten',
+    delta_15min: '15 Minuten',
+    show_measurement: 'Messwert anzeigen',
+    show_unit: 'Einheit anzeigen (mmol/L, mg/dL)',
+    show_trend_arrow: 'Trendpfeil anzeigen',
+    show_trend_text: 'Trendtext anzeigen',
+    show_delta: 'Hauptdelta anzeigen',
+    show_timestamp: 'Zeitstempel anzeigen',
+    show_expiration: 'Sensorablauf anzeigen',
+    show_delta_1min: '1-Min-Delta anzeigen',
+    show_delta_5min: '5-Min-Delta anzeigen',
+    show_delta_15min: '15-Min-Delta anzeigen',
+    tap_action: 'Tippaktion',
+    hold_action: 'Halteaktion'
+  },
+  fr: {
+    entity: 'Entité de glycémie',
+    unit: 'Unité',
+    unit_auto: 'Auto (depuis le capteur)',
+    language: 'Langue',
+    language_auto: 'Auto (selon Home Assistant)',
+    decimals: 'Décimales (remplacer)',
+    decimals_helper: "Laisser vide pour suivre la précision d'affichage de l'entité",
+    delta_type: 'Fenêtre du delta principal',
+    delta_1min: '1 minute',
+    delta_5min: '5 minutes',
+    delta_15min: '15 minutes',
+    show_measurement: 'Afficher la mesure',
+    show_unit: "Afficher l'unité (mmol/L, mg/dL)",
+    show_trend_arrow: 'Afficher la flèche de tendance',
+    show_trend_text: 'Afficher le texte de tendance',
+    show_delta: 'Afficher le delta principal',
+    show_timestamp: "Afficher l'horodatage",
+    show_expiration: "Afficher l'expiration du capteur",
+    show_delta_1min: 'Afficher le delta 1 min',
+    show_delta_5min: 'Afficher le delta 5 min',
+    show_delta_15min: 'Afficher le delta 15 min',
+    tap_action: 'Action au toucher',
+    hold_action: "Action à l'appui long"
+  },
+  es: {
+    entity: 'Entidad de glucosa',
+    unit: 'Unidad',
+    unit_auto: 'Automático (del sensor)',
+    language: 'Idioma',
+    language_auto: 'Automático (según Home Assistant)',
+    decimals: 'Decimales (anular)',
+    decimals_helper: 'Déjelo en blanco para usar la precisión de visualización de la entidad',
+    delta_type: 'Ventana del delta principal',
+    delta_1min: '1 minuto',
+    delta_5min: '5 minutos',
+    delta_15min: '15 minutos',
+    show_measurement: 'Mostrar medición',
+    show_unit: 'Mostrar unidad (mmol/L, mg/dL)',
+    show_trend_arrow: 'Mostrar flecha de tendencia',
+    show_trend_text: 'Mostrar texto de tendencia',
+    show_delta: 'Mostrar delta principal',
+    show_timestamp: 'Mostrar marca de tiempo',
+    show_expiration: 'Mostrar expiración del sensor',
+    show_delta_1min: 'Mostrar delta de 1 min',
+    show_delta_5min: 'Mostrar delta de 5 min',
+    show_delta_15min: 'Mostrar delta de 15 min',
+    tap_action: 'Acción al tocar',
+    hold_action: 'Acción al mantener presionado'
+  }
+};
+
+// Same detection order as the card itself: explicit config override, then
+// Home Assistant's own UI language, falling back to English.
+function detectEditorLanguage(hass, config) {
+  if (config && config.language) return config.language;
+  const hassLanguage =
+    (hass && hass.locale && hass.locale.language) ||
+    (hass && hass.language) ||
+    'en';
+  const supported = ['en', 'sk', 'de', 'fr', 'es'];
+  const base = hassLanguage.split('-')[0].toLowerCase();
+  return supported.includes(base) ? base : 'en';
+}
+
 // Visual editor for the card.
 class LibrelinkExtendedCardEditor extends HTMLElement {
   setConfig(config) {
@@ -872,16 +1018,51 @@ class LibrelinkExtendedCardEditor extends HTMLElement {
     }
   }
 
+  _t() {
+    return EDITOR_TRANSLATIONS[detectEditorLanguage(this._hass, this._config)] || EDITOR_TRANSLATIONS.en;
+  }
+
   get _schema() {
+    const t = this._t();
     return [
       { name: 'entity', required: true, selector: { entity: { domain: 'sensor' } } },
+      {
+        name: 'delta_type',
+        selector: {
+          select: {
+            mode: 'dropdown',
+            options: [
+              { value: '1', label: t.delta_1min },
+              { value: '5', label: t.delta_5min },
+              { value: '15', label: t.delta_15min }
+            ]
+          }
+        }
+      },
+      {
+        type: 'grid',
+        name: '',
+        column_min_width: '100%',
+        schema: [
+          { name: 'show_measurement', selector: { boolean: {} } },
+          { name: 'show_unit', selector: { boolean: {} } },
+          { name: 'show_trend_arrow', selector: { boolean: {} } },
+          { name: 'show_trend_text', selector: { boolean: {} } },
+          { name: 'show_delta', selector: { boolean: {} } },
+          { name: 'show_timestamp', selector: { boolean: {} } },
+          { name: 'show_expiration', selector: { boolean: {} } },
+          { name: 'show_delta_1min', selector: { boolean: {} } },
+          { name: 'show_delta_5min', selector: { boolean: {} } },
+          { name: 'show_delta_15min', selector: { boolean: {} } }
+        ]
+      },
       {
         name: 'unit',
         selector: {
           select: {
             mode: 'dropdown',
             options: [
-              { value: '', label: 'Auto (from sensor)' },
+              { value: '', label: t.unit_auto },
               { value: 'mmol/L', label: 'mmol/L' },
               { value: 'mg/dL', label: 'mg/dL' }
             ]
@@ -894,7 +1075,7 @@ class LibrelinkExtendedCardEditor extends HTMLElement {
           select: {
             mode: 'dropdown',
             options: [
-              { value: '', label: 'Auto (match Home Assistant)' },
+              { value: '', label: t.language_auto },
               { value: 'en', label: 'English' },
               { value: 'sk', label: 'Slovenčina' },
               { value: 'de', label: 'Deutsch' },
@@ -905,60 +1086,19 @@ class LibrelinkExtendedCardEditor extends HTMLElement {
         }
       },
       { name: 'decimals', selector: { number: { min: 0, max: 3, mode: 'box' } } },
-      {
-        name: 'delta_type',
-        selector: {
-          select: {
-            mode: 'dropdown',
-            options: [
-              { value: '1', label: '1 minute' },
-              { value: '5', label: '5 minutes' },
-              { value: '15', label: '15 minutes' }
-            ]
-          }
-        }
-      },
-      { name: 'show_measurement', selector: { boolean: {} } },
-      { name: 'show_unit', selector: { boolean: {} } },
-      { name: 'show_trend_arrow', selector: { boolean: {} } },
-      { name: 'show_trend_text', selector: { boolean: {} } },
-      { name: 'show_delta', selector: { boolean: {} } },
-      { name: 'show_timestamp', selector: { boolean: {} } },
-      { name: 'show_expiration', selector: { boolean: {} } },
-      { name: 'show_delta_1min', selector: { boolean: {} } },
-      { name: 'show_delta_5min', selector: { boolean: {} } },
-      { name: 'show_delta_15min', selector: { boolean: {} } },
       { name: 'tap_action', selector: { ui_action: {} } },
       { name: 'hold_action', selector: { ui_action: {} } }
     ];
   }
 
   _computeLabel(schema) {
-    const labels = {
-      entity: 'Glucose entity',
-      unit: 'Unit',
-      language: 'Language',
-      decimals: 'Decimal places (override)',
-      delta_type: 'Main delta window',
-      show_measurement: 'Show measurement',
-      show_unit: 'Show unit (mmol/L, mg/dL)',
-      show_trend_arrow: 'Show trend arrow',
-      show_trend_text: 'Show trend text',
-      show_delta: 'Show main delta',
-      show_timestamp: 'Show timestamp',
-      show_expiration: 'Show sensor expiration',
-      show_delta_1min: 'Show 1 min delta',
-      show_delta_5min: 'Show 5 min delta',
-      show_delta_15min: 'Show 15 min delta',
-      tap_action: 'Tap action',
-      hold_action: 'Hold action'
-    };
-    return labels[schema.name] || schema.name;
+    const t = this._t();
+    return t[schema.name] || schema.name;
   }
 
   _computeHelper(schema) {
     if (schema.name === 'decimals') {
-      return "Leave blank to follow the entity's own Display Precision setting";
+      return this._t().decimals_helper;
     }
     return undefined;
   }
