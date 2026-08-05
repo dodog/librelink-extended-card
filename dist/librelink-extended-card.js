@@ -1006,16 +1006,14 @@ function detectEditorLanguage(hass, config) {
 class LibrelinkExtendedCardEditor extends HTMLElement {
   setConfig(config) {
     this._config = { ...config };
-    this._renderForm();
+    this._ensureForm();
+    this._updateForm();
   }
 
   set hass(hass) {
     this._hass = hass;
-    if (this._form) {
-      this._form.hass = hass;
-    } else {
-      this._renderForm();
-    }
+    this._ensureForm();
+    this._updateForm();
   }
 
   _t() {
@@ -1039,23 +1037,16 @@ class LibrelinkExtendedCardEditor extends HTMLElement {
           }
         }
       },
-      {
-        type: 'grid',
-        name: '',
-        column_min_width: '100%',
-        schema: [
-          { name: 'show_measurement', selector: { boolean: {} } },
-          { name: 'show_unit', selector: { boolean: {} } },
-          { name: 'show_trend_arrow', selector: { boolean: {} } },
-          { name: 'show_trend_text', selector: { boolean: {} } },
-          { name: 'show_delta', selector: { boolean: {} } },
-          { name: 'show_timestamp', selector: { boolean: {} } },
-          { name: 'show_expiration', selector: { boolean: {} } },
-          { name: 'show_delta_1min', selector: { boolean: {} } },
-          { name: 'show_delta_5min', selector: { boolean: {} } },
-          { name: 'show_delta_15min', selector: { boolean: {} } }
-        ]
-      },
+      { name: 'show_measurement', selector: { boolean: {} } },
+      { name: 'show_unit', selector: { boolean: {} } },
+      { name: 'show_trend_arrow', selector: { boolean: {} } },
+      { name: 'show_trend_text', selector: { boolean: {} } },
+      { name: 'show_delta', selector: { boolean: {} } },
+      { name: 'show_timestamp', selector: { boolean: {} } },
+      { name: 'show_expiration', selector: { boolean: {} } },
+      { name: 'show_delta_1min', selector: { boolean: {} } },
+      { name: 'show_delta_5min', selector: { boolean: {} } },
+      { name: 'show_delta_15min', selector: { boolean: {} } },
       {
         name: 'unit',
         selector: {
@@ -1103,26 +1094,12 @@ class LibrelinkExtendedCardEditor extends HTMLElement {
     return undefined;
   }
 
-  _renderForm() {
-    if (!this._hass || !this._config) return;
+  // Creates the <ha-form> element exactly once. Subsequent config/hass
+  // updates just update this same element's properties
+  _ensureForm() {
+    if (this._form) return;
 
-    this.innerHTML = '';
     const form = document.createElement('ha-form');
-    form.hass = this._hass;
-
-    // ha-form expects real values for the fields it renders; map our
-    // "unset means auto" config (undefined/missing) to '' for the select
-    // fields, and delta_type to a string since the select options are strings.
-    form.data = {
-      ...this._config,
-      unit: this._config.unit || '',
-      language: this._config.language || '',
-      delta_type: String(this._config.delta_type || 5)
-    };
-
-    form.schema = this._schema;
-    form.computeLabel = this._computeLabel.bind(this);
-    form.computeHelper = this._computeHelper.bind(this);
 
     form.addEventListener('value-changed', (ev) => {
       ev.stopPropagation();
@@ -1140,6 +1117,7 @@ class LibrelinkExtendedCardEditor extends HTMLElement {
       }
 
       this._config = newConfig;
+      this._updateForm();
       this.dispatchEvent(new CustomEvent('config-changed', {
         detail: { config: newConfig },
         bubbles: true,
@@ -1149,6 +1127,26 @@ class LibrelinkExtendedCardEditor extends HTMLElement {
 
     this.appendChild(form);
     this._form = form;
+  }
+
+  _updateForm() {
+    if (!this._form || !this._hass || !this._config) return;
+
+    this._form.hass = this._hass;
+
+    // ha-form expects real values for the fields it renders; map our
+    // "unset means auto" config (undefined/missing) to '' for the select
+    // fields, and delta_type to a string since the select options are strings.
+    this._form.data = {
+      ...this._config,
+      unit: this._config.unit || '',
+      language: this._config.language || '',
+      delta_type: String(this._config.delta_type || 5)
+    };
+
+    this._form.schema = this._schema;
+    this._form.computeLabel = this._computeLabel.bind(this);
+    this._form.computeHelper = this._computeHelper.bind(this);
   }
 }
 
