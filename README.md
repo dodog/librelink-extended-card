@@ -27,6 +27,7 @@ A custom [Home Assistant](https://www.home-assistant.io/) Lovelace card for disp
    - URL: `https://github.com/dodog/librelink-extended-card`
    - Type: Dashboard
 2. Click Install
+3. Find the "Librelink Extended Card" and click "Download"
 
 ### Manual Installation
 1. Download `librelink-extended-card.js`
