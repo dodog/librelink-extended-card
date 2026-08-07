@@ -864,6 +864,7 @@ if (!customElements.get('librelink-extended-card')) {
 const EDITOR_TRANSLATIONS = {
   en: {
     entity: 'Glucose entity',
+    entity_helper: "Only shows sensors currently reporting mmol/L or mg/dL. If yours doesn't appear, switch this card to YAML mode and enter the entity ID manually.",
     unit: 'Unit',
     unit_auto: 'Auto (from sensor)',
     language: 'Language',
@@ -889,6 +890,7 @@ const EDITOR_TRANSLATIONS = {
   },
   sk: {
     entity: 'Entita glukózy',
+    entity_helper: 'Zobrazujú sa len entity, ktoré aktuálne hlásia jednotku mmol/L alebo mg/dL. Ak sa vaša entita nezobrazuje, prepnite kartu do režimu YAML a zadajte ID entity ručne.',
     unit: 'Jednotka',
     unit_auto: 'Automaticky (podľa senzora)',
     language: 'Jazyk',
@@ -914,6 +916,7 @@ const EDITOR_TRANSLATIONS = {
   },
   de: {
     entity: 'Glukose-Entität',
+    entity_helper: 'Zeigt nur Sensoren, die aktuell mmol/L oder mg/dL melden. Falls Ihre Entität nicht erscheint, wechseln Sie diese Karte in den YAML-Modus und geben Sie die Entitäts-ID manuell ein.',
     unit: 'Einheit',
     unit_auto: 'Automatisch (vom Sensor)',
     language: 'Sprache',
@@ -939,6 +942,7 @@ const EDITOR_TRANSLATIONS = {
   },
   fr: {
     entity: 'Entité de glycémie',
+    entity_helper: "N'affiche que les capteurs signalant actuellement mmol/L ou mg/dL. Si le vôtre n'apparaît pas, passez cette carte en mode YAML et saisissez l'ID de l'entité manuellement.",
     unit: 'Unité',
     unit_auto: 'Auto (depuis le capteur)',
     language: 'Langue',
@@ -964,6 +968,7 @@ const EDITOR_TRANSLATIONS = {
   },
   es: {
     entity: 'Entidad de glucosa',
+    entity_helper: 'Solo muestra sensores que actualmente informan mmol/L o mg/dL. Si la suya no aparece, cambie esta tarjeta al modo YAML e introduzca el ID de la entidad manualmente.',
     unit: 'Unidad',
     unit_auto: 'Automático (del sensor)',
     language: 'Idioma',
@@ -1002,7 +1007,7 @@ function detectEditorLanguage(hass, config) {
   return supported.includes(base) ? base : 'en';
 }
 
-// Visual editor for the card.
+// Visual editor for the card
 class LibrelinkExtendedCardEditor extends HTMLElement {
   setConfig(config) {
     this._config = { ...config };
@@ -1020,10 +1025,35 @@ class LibrelinkExtendedCardEditor extends HTMLElement {
     return EDITOR_TRANSLATIONS[detectEditorLanguage(this._hass, this._config)] || EDITOR_TRANSLATIONS.en;
   }
 
+  // Finds sensor entities that actually report glucose units
+  _getGlucoseEntityIds() {
+    if (!this._hass || !this._hass.states) return [];
+    const glucoseUnits = ['mmol/l', 'mg/dl'];
+    return Object.keys(this._hass.states).filter((entityId) => {
+      if (!entityId.startsWith('sensor.')) return false;
+      const stateObj = this._hass.states[entityId];
+      const unit = ((stateObj.attributes && stateObj.attributes.unit_of_measurement) || '')
+        .toLowerCase()
+        .replace(/\s+/g, '');
+      return glucoseUnits.includes(unit);
+    });
+  }
+
   get _schema() {
     const t = this._t();
+    const glucoseEntityIds = this._getGlucoseEntityIds();
+    // Fall back to every sensor if we couldn't find any glucose-unit
+    // entities, so the field is never left impossible to fill in.
+    const entitySelector = glucoseEntityIds.length > 0
+      ? { entity: { include_entities: glucoseEntityIds } }
+      : { entity: { domain: 'sensor' } };
+
     return [
-      { name: 'entity', required: true, selector: { entity: { domain: 'sensor' } } },
+      {
+        name: 'entity',
+        required: true,
+        selector: entitySelector
+      },
       {
         name: 'delta_type',
         selector: {
@@ -1090,6 +1120,9 @@ class LibrelinkExtendedCardEditor extends HTMLElement {
   _computeHelper(schema) {
     if (schema.name === 'decimals') {
       return this._t().decimals_helper;
+    }
+    if (schema.name === 'entity') {
+      return this._t().entity_helper;
     }
     return undefined;
   }
