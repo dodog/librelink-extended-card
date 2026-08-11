@@ -697,17 +697,32 @@ class LibrelinkExtendedCard extends HTMLElement {
       mainDeltaColor = this._getDeltaColor(parseFloat(delta5), unit);
     }
 
-    // Build info sections
-    let infoLines = [];
+    // Build info sections. Layout: a top row splits the glucose value
+    // (left) from trend/delta (right), an optional secondary-delta row
+    // sits below that, and a footer row - separated by a divider -
+    // carries the low-priority metadata (timestamp, expiration).
+    let sections = [];
 
-    // Row 1: Glucose value (if enabled)
+    // Icon + text in one inline-flex span.
+    const footerItem = (icon, color, fontSize, text) => `
+      <span style="display: inline-flex; align-items: center; gap: 4px; font-size: ${fontSize}px; color: ${color};">
+        <ha-icon icon="${icon}" style="--mdc-icon-size: ${fontSize}px; width: ${fontSize}px; height: ${fontSize}px; color: ${color}; position: relative; top: -0.4em;"></ha-icon>
+        ${text}
+      </span>
+    `;
+
+    // Left side of the top row: glucose value. When the measurement is
+    // hidden timestamp moves up here instead - and is then
+    // skipped in the footer below to avoid showing it twice.
+    let leftBlock = '';
+    let timestampInTopRow = false;
     if (this._config.show_measurement !== false) {
-      infoLines.push(`
+      leftBlock = `
         <div style="
           font-size: 64px;
           font-weight: bold;
           color: ${glucoseColor};
-          line-height: 1.2;
+          line-height: 1;
           font-family: var(--primary-font-family, 'Open Sans', sans-serif);
         ">
           ${this._formatEntityValue(glucoseState, glucoseValue)}
@@ -719,38 +734,46 @@ class LibrelinkExtendedCard extends HTMLElement {
             margin-left: 4px;
           ">${unit}</span>` : ''}
         </div>
-      `);
+      `;
+    } else if (this._config.show_timestamp !== false) {
+      timestampInTopRow = true;
+      leftBlock = footerItem('mdi:clock-outline', timestampColor, 20, timestampDisplay);
     }
 
-    // Row 2: Trend arrow, trend text, and main delta
-    let row2Parts = [];
-    
+    // Right side of the top row: trend arrow + trend text stacked over the main delta
+    let trendLine = '';
     if (this._config.show_trend_arrow !== false && trendArrow) {
-      row2Parts.push(`<span style="font-size: 32px; color: var(--primary-text-color, white);">${trendArrow}</span>`);
+      trendLine += `<span style="font-size: 32px; font-weight: bold; color: var(--primary-text-color, white);">${trendArrow}</span>`;
     }
-    
     if (this._config.show_trend_text !== false && trendText) {
-      row2Parts.push(`<span style="font-size: 18px; color: var(--secondary-text-color, #888);">${trendText}</span>`);
+      trendLine += `<span style="font-size: 18px; color: var(--secondary-text-color, #888); margin-left: 6px;">${trendText}</span>`;
     }
-    
+
+    let deltaLine = '';
     if (this._config.show_delta !== false) {
-      row2Parts.push(`<span style="font-size: 24px; color: ${mainDeltaColor};">Δ ${this._formatEntityValue(mainDeltaState, mainDelta, { showSign: true })}</span>`);
+      deltaLine = `<div style="font-size: 24px; font-weight: bold; color: ${mainDeltaColor}; margin-top: 2px;">Δ ${this._formatEntityValue(mainDeltaState, mainDelta, { showSign: true })}</div>`;
     }
-    
-    if (row2Parts.length > 0) {
-      infoLines.push(`
-        <div style="
-          font-size: 24px;
-          font-weight: bold;
-          color: var(--primary-text-color, white);
-          margin-top: ${this._config.show_measurement !== false ? '4px' : '0'};
-        ">
-          ${row2Parts.join('  ')}
+
+    let rightBlock = '';
+    if (trendLine || deltaLine) {
+      rightBlock = `
+        <div style="text-align: right; line-height: 1;">
+          ${trendLine ? `<div>${trendLine}</div>` : ''}
+          ${deltaLine}
+        </div>
+      `;
+    }
+
+    if (leftBlock || rightBlock) {
+      sections.push(`
+        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+          <div>${leftBlock}</div>
+          ${rightBlock}
         </div>
       `);
     }
 
-    // Row 2b: Secondary deltas (if configured)
+    // Secondary deltas - a compact row under the main block
     let secondaryDeltas = [];
     if (this._config.show_delta_1min && delta1State) {
       const color = this._getDeltaColor(parseFloat(delta1), unit);
@@ -764,45 +787,47 @@ class LibrelinkExtendedCard extends HTMLElement {
       const color = this._getDeltaColor(parseFloat(delta15), unit);
       secondaryDeltas.push(`<span style="color: ${color};">15m: Δ${this._formatEntityValue(delta15State, delta15, { showSign: true })}</span>`);
     }
-    
+
     if (secondaryDeltas.length > 0) {
-      infoLines.push(`
+      sections.push(`
         <div style="
           font-size: 14px;
           font-weight: normal;
           color: var(--secondary-text-color, #888);
-          margin-top: 2px;
+          margin-top: 6px;
+          display: flex;
+          gap: 10px;
         ">
-          ${secondaryDeltas.join('  ')}
+          ${secondaryDeltas.join('')}
         </div>
       `);
     }
 
-    // Row 3: Timestamp (if enabled)
-    if (this._config.show_timestamp !== false) {
-      infoLines.push(`
-        <div style="
-          font-size: 16px;
-          font-weight: normal;
-          color: ${timestampColor};
-          margin-top: 8px;
-        ">
-          ${timestampDisplay}
-        </div>
-      `);
+    // Footer row: timestamp (left) and expiration (right), separated
+    // from the reading above by a hairline divider.
+    let footerLeft = '';
+    if (!timestampInTopRow && this._config.show_timestamp !== false) {
+      footerLeft = footerItem('mdi:clock-outline', timestampColor, 16, timestampDisplay);
     }
 
-    // Row 4: Expiration (if enabled)
+    let footerRight = '';
     if (this._config.show_expiration !== false && expirationRaw) {
       const expColor = isExpired ? 'var(--error-color, #FF5252)' : 'var(--secondary-text-color, #888)';
-      infoLines.push(`
+      footerRight = footerItem('mdi:timer-sand', expColor, 14, expirationDisplay);
+    }
+
+    if (footerLeft || footerRight) {
+      sections.push(`
         <div style="
-          font-size: 14px;
-          font-weight: normal;
-          color: ${expColor};
-          margin-top: 2px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          width: 100%;
+          margin-top: 8px;
+          ${sections.length > 0 ? 'padding-top: 8px; border-top: 1px solid var(--divider-color, rgba(255,255,255,0.08));' : ''}
         ">
-          ${expirationDisplay}
+          ${footerLeft}
+          ${footerRight}
         </div>
       `);
     }
@@ -810,10 +835,9 @@ class LibrelinkExtendedCard extends HTMLElement {
     // Build the card with theme variables
     this.innerHTML = `
       <ha-card style="
-        padding: 8px 16px 8px 16px;
+        padding: 12px 16px;
         display: flex;
         flex-direction: column;
-        align-items: center;
         justify-content: center;
         background: var(--ha-card-background, #1a1a1a);
         border-radius: var(--ha-card-border-radius, 12px);
@@ -821,10 +845,32 @@ class LibrelinkExtendedCard extends HTMLElement {
         border: 1px solid var(--ha-card-border-color, rgba(255,255,255,0.05));
         min-height: ${this._config.show_measurement !== false ? '130px' : '80px'};
       ">
-        ${infoLines.join('')}
+        ${sections.join('')}
       </ha-card>
     `;
     this._attachActionListeners(this.querySelector('ha-card'));
+  }
+
+  // Reported height for masonry-view sizing (1 unit = 50px), per the HA
+  // custom card guide. Scales with how many rows the card actually
+  // renders so it doesn't leave a gap when metadata rows are hidden.
+  getCardSize() {
+    let rows = 1;
+    if (this._config && (this._config.show_timestamp !== false || this._config.show_expiration !== false)) rows += 1;
+    if (this._config && (this._config.show_delta_1min || this._config.show_delta_5min || this._config.show_delta_15min)) rows += 1;
+    return rows;
+  }
+
+  // Grid sizing for sections-view dashboards, per the HA custom card
+  // guide. The card reads well as a narrow tile, so it defaults to a
+  // quarter-width, single-row cell rather than the full-width fallback.
+  getGridOptions() {
+    return {
+      columns: 6,
+      rows: 2,
+      min_columns: 3,
+      min_rows: 2
+    };
   }
 
   static getConfigElement() {
@@ -858,8 +904,7 @@ if (!customElements.get('librelink-extended-card')) {
 
 /**
  * Text shown in the visual editor itself (field labels, helper text, and
- * select option labels). Kept separate from the card's own runtime
- * translations since the editor is a different custom element instance.
+ * select option labels). Kept separate from the card's own runtime translations
  */
 const EDITOR_TRANSLATIONS = {
   en: {
