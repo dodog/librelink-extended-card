@@ -44,6 +44,23 @@
  * hold_action: { action: none } (optional, same options as tap_action)
  */
 
+// Shared between the card and its editor
+const CARD_DEFAULTS = {
+  show_measurement: true,
+  show_unit: true,
+  show_trend_arrow: true,
+  show_trend_text: true,
+  show_delta: true,
+  show_timestamp: true,
+  show_expiration: true,
+  delta_type: 5,
+  show_delta_1min: false,
+  show_delta_5min: false,
+  show_delta_15min: false,
+  tap_action: { action: 'more-info' },
+  hold_action: { action: 'none' }
+};
+
 class LibrelinkExtendedCard extends HTMLElement {
   constructor() {
     super();
@@ -57,19 +74,7 @@ class LibrelinkExtendedCard extends HTMLElement {
       throw new Error('You need to define an entity');
     }
     this._config = {
-      show_measurement: true,
-      show_unit: true,
-      show_trend_arrow: true,
-      show_trend_text: true,
-      show_delta: true,
-      show_timestamp: true,
-      show_expiration: true,
-      delta_type: 5,
-      show_delta_1min: false,
-      show_delta_5min: false,
-      show_delta_15min: false,
-      tap_action: { action: 'more-info' },
-      hold_action: { action: 'none' },
+      ...CARD_DEFAULTS,
       ...config
     };
     
@@ -93,6 +98,9 @@ class LibrelinkExtendedCard extends HTMLElement {
     }
     
     if (!this._sensorBase) {
+      // Defensive fallback only - HA entity IDs are always domain.object_id
+      // (exactly one dot), so the branch above always sets _sensorBase in
+      // practice. Kept only in case that assumption is ever wrong.
       this._sensorBase = entityParts[1].replace(/_glucose_measurement$/, '').replace(/_measurement$/, '');
     }
     
@@ -226,12 +234,7 @@ class LibrelinkExtendedCard extends HTMLElement {
     return match ? match[0].trim() : formatted.trim();
   }
 
-  // Formats a value the same way Home Assistant's own built-in cards do,
-  // by delegating to hass.formatEntityState() when available - this is the
-  // only reliable way to get the exact per-entity "Display precision" a
-  // user configured, since that data isn't otherwise exposed to custom
-  // cards. Falls back to manual formatting (unit-based decimal guess) if
-  // formatEntityState isn't available or the entity doesn't exist.
+  // Formats a value
   _formatEntityValue(stateObj, rawValue, { showSign = false } = {}) {
     const value = stateObj ? stateObj.state : rawValue;
     const unit = this._getUnit(this._hass.states[this._config.entity]);
@@ -300,7 +303,7 @@ class LibrelinkExtendedCard extends HTMLElement {
       },
       de: {
         just_now: 'Gerade jetzt',
-        min_ago: (n) => n === 1 ? '1 min ago' : `vor ${n} min`,
+        min_ago: (n) => n === 1 ? 'vor 1 min' : `vor ${n} min`,
         hour_ago: (n) => n === 1 ? 'vor 1 Stunde' : `vor ${n} Stunden`,
         day_ago: (n) => n === 1 ? 'vor 1 Tag' : `vor ${n} Tagen`,
         expired: 'ABGELAUFEN',
@@ -712,7 +715,7 @@ class LibrelinkExtendedCard extends HTMLElement {
     `;
 
     // Left side of the top row: glucose value. When the measurement is
-    // hidden timestamp moves up here instead - and is then
+    // hidden, timestamp moves up here and then it is
     // skipped in the footer below to avoid showing it twice.
     let leftBlock = '';
     let timestampInTopRow = false;
@@ -851,19 +854,19 @@ class LibrelinkExtendedCard extends HTMLElement {
     this._attachActionListeners(this.querySelector('ha-card'));
   }
 
-  // Reported height for masonry-view sizing (1 unit = 50px), per the HA
-  // custom card guide. Scales with how many rows the card actually
-  // renders so it doesn't leave a gap when metadata rows are hidden.
+  // Reported height for masonry-view sizing (1 unit = 50px)
   getCardSize() {
-    let rows = 1;
-    if (this._config && (this._config.show_timestamp !== false || this._config.show_expiration !== false)) rows += 1;
-    if (this._config && (this._config.show_delta_1min || this._config.show_delta_5min || this._config.show_delta_15min)) rows += 1;
+    if (!this._config) return 1;
+    let rows = this._config.show_measurement !== false ? 2 : 1;
+    const timestampInFooter = this._config.show_measurement !== false && this._config.show_timestamp !== false;
+    if (timestampInFooter || this._config.show_expiration !== false) rows += 1;
+    if (this._config.show_delta_1min || this._config.show_delta_5min || this._config.show_delta_15min) rows += 1;
     return rows;
   }
 
   // Grid sizing for sections-view dashboards, per the HA custom card
-  // guide. The card reads well as a narrow tile, so it defaults to a
-  // quarter-width, single-row cell rather than the full-width fallback.
+  // guide. The card reads well as a compact tile, so it defaults to a
+  // half-width, two-row cell rather than the full-width fallback.
   getGridOptions() {
     return {
       columns: 6,
@@ -1055,7 +1058,8 @@ function detectEditorLanguage(hass, config) {
 // Visual editor for the card
 class LibrelinkExtendedCardEditor extends HTMLElement {
   setConfig(config) {
-    this._config = { ...config };
+    // Merge the same defaults the card itself applies
+    this._config = { ...CARD_DEFAULTS, ...config };
     this._ensureForm();
     this._updateForm();
   }
@@ -1238,6 +1242,67 @@ if (!window.customCards.some((c) => c.type === 'librelink-extended-card')) {
   window.customCards.push({
     type: 'librelink-extended-card',
     name: 'Librelink Extended Card',
-    description: 'Glucose reading with trend arrow, delta, timestamp, and sensor expiration.'
+    description: 'Glucose reading with trend arrow, delta, timestamp, and sensor expiration.',
+    // Available since HA 2026.6: shows this card in
+    // the card picker when the user selects a matching entity.
+    getEntitySuggestion: (hass, entityId) => {
+      if (!entityId.startsWith('sensor.')) return null;
+      const stateObj = hass.states[entityId];
+      if (!stateObj) return null;
+
+      const registryEntry = hass.entities && hass.entities[entityId];
+      const isLibrelinkEntity = registryEntry && registryEntry.platform === 'librelink';
+
+      const unit = ((stateObj.attributes && stateObj.attributes.unit_of_measurement) || '')
+        .toLowerCase()
+        .replace(/\s+/g, '');
+      const isGlucoseUnit = ['mmol/l', 'mg/dl'].includes(unit);
+
+      if (!isLibrelinkEntity && !isGlucoseUnit) return null;
+
+      const objectId = entityId.split('.')[1] || '';
+
+      // Suffixes the librelink integration uses for entities other than the main measurement 
+      const subEntitySuffixes = [
+        'last_measurement_timestamp',
+        'expiration_timestamp',
+        'glucose_trend_arrow',
+        'trend_arrow',
+        'delta_15min',
+        'delta_5min',
+        'delta_1min',
+        'trend',
+      ];
+      const measurementSuffixes = ['glucose_measurement', 'measurement', 'value'];
+
+      let base = null;
+      for (const suffix of subEntitySuffixes) {
+        if (objectId.endsWith('_' + suffix)) {
+          base = objectId.slice(0, -(suffix.length + 1));
+          break;
+        }
+      }
+
+      if (base === null) {
+        // Not a recognized sub-entity name - if it reports a glucose
+        // unit, treat it as the measurement entity itself.
+        if (isGlucoseUnit) {
+          return { config: { type: 'custom:librelink-extended-card', entity: entityId } };
+        }
+        // Unrecognized shape and no glucose unit - safer not to guess.
+        return null;
+      }
+
+      for (const suffix of measurementSuffixes) {
+        const candidate = `sensor.${base}_${suffix}`;
+        if (hass.states[candidate]) {
+          return { config: { type: 'custom:librelink-extended-card', entity: candidate } };
+        }
+      }
+
+      // Couldn't find the matching measurement entity - don't suggest,
+      // since the card needs it as `entity:` to derive everything else.
+      return null;
+    },
   });
 }
