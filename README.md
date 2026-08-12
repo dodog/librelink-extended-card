@@ -9,7 +9,7 @@ A custom [Home Assistant](https://www.home-assistant.io/) Lovelace card for disp
 
 **Features:**
 - ⚡ Automatic detection of LibreLink sensors
-- 🌍 Multi-language support (English, German, Spanish, French, Slovak)
+- 🌍 Multi-language support (English, German, Spanish, French, Slovak, Polish)
 - 🎯 Configurable delta display (1min, 5min, 15min)
 - ⏰ Sensor expiration countdown
 - 🕥 Time since last measurement, color-coded by staleness
@@ -72,6 +72,7 @@ delta_type: 5                   # 1, 5, or 15 (default: 5)
 show_delta_1min: false          # Show 1min delta as secondary
 show_delta_5min: false          # Show 5min delta as secondary
 show_delta_15min: false         # Show 15min delta as secondary
+show_time_in_range: false       # Show the 24h Time in Range (optional)
 unit: mmol/L                    # Auto-detected from the entity's unit_of_measurement (optional)
 decimals: 1                     # Number of decimal places (optional, auto-detected from the entity)
 tap_action:                     # (optional, standard HA action config:
@@ -97,6 +98,7 @@ hold_action: { action: none }   # (optional, same options as tap_action)
 | `show_delta_1min`    | boolean | `false`                       | Also show the 1‑minute delta as a secondary line                                                                                      |
 | `show_delta_5min`    | boolean | `false`                       | Also show the 5‑minute delta as a secondary line                                                                                      |
 | `show_delta_15min`   | boolean | `false`                       | Also show the 15‑minute delta as a secondary line                                                                                     |
+| `show_time_in_range`   | boolean | `false`                       | Show Time in Range in 24 hours                                                                                                       |
 | `tap_action`         | object  | `{ action: more-info }`       | Standard HA action config: `more-info`, `navigate`, `url`, `call-service`, `toggle`, `none`                                           |
 | `hold_action`        | object  | `{ action: none }`            | Same options as `tap_action`, triggered on long-press                                                                                 |
 
@@ -133,6 +135,7 @@ show_timestamp: true
 show_expiration: true
 show_delta_1min: false
 show_delta_5min: false
+show_delta_15min: false
 show_delta_15min: false
 tap_action:
   action: more-info
