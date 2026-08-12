@@ -32,6 +32,8 @@
  * show_delta_1min: false (optional, show 1min delta as secondary)
  * show_delta_5min: false (optional, show 5min delta as secondary)
  * show_delta_15min: false (optional, show 15min delta as secondary)
+ * show_time_in_range: false (optional, show the 24h Time in Range
+ *   percentage sensor, e.g. sensor.name_surname_time_in_range_24h)
  * unit: mmol/L (optional. Auto-detected from the entity's unit_of_measurement
  *   if omitted, so mg/dL sensors work automatically. Set this to override it,
  *   e.g. unit: mg/dL)
@@ -57,6 +59,7 @@ const CARD_DEFAULTS = {
   show_delta_1min: false,
   show_delta_5min: false,
   show_delta_15min: false,
+  show_time_in_range: false,
   tap_action: { action: 'more-info' },
   hold_action: { action: 'none' }
 };
@@ -262,6 +265,21 @@ class LibrelinkExtendedCard extends HTMLElement {
     return this._formatNumber(value, { decimals: this._getDecimals(unit), showSign });
   }
 
+  // Formats a percentage sensor (Time in Range).
+  _formatPercent(stateObj) {
+    if (!stateObj) return '';
+    if (this._hass && typeof this._hass.formatEntityState === 'function') {
+      try {
+        const full = this._hass.formatEntityState(stateObj);
+        if (full) return full;
+      } catch (e) {
+        // fall through to manual formatting
+      }
+    }
+    const num = parseFloat(stateObj.state);
+    return isNaN(num) ? stateObj.state : `${Math.round(num)}%`;
+  }
+
   _getTranslations() {
     const lang = this._getLanguage();
     const translations = {
@@ -278,6 +296,7 @@ class LibrelinkExtendedCard extends HTMLElement {
         sensor_expired: 'Sensor Expired',
         no_data: 'No Data',
         entity_unavailable: 'Sensor Unavailable',
+        time_in_range: 'TIR (24h)',
         time_units: {
           hours: 'hours',
           days: 'days'
@@ -296,6 +315,7 @@ class LibrelinkExtendedCard extends HTMLElement {
         sensor_expired: 'Senzor vypršal',
         no_data: 'Žiadne dáta',
         entity_unavailable: 'Senzor nedostupný',
+        time_in_range: 'TIR (24h)',
         time_units: {
           hours: 'hodín',
           days: 'dní'
@@ -314,6 +334,7 @@ class LibrelinkExtendedCard extends HTMLElement {
         sensor_expired: 'Sensor abgelaufen',
         no_data: 'Keine Daten',
         entity_unavailable: 'Sensor nicht verfügbar',
+        time_in_range: 'TIR (24h)',
         time_units: {
           hours: 'Stunden',
           days: 'Tage'
@@ -332,6 +353,7 @@ class LibrelinkExtendedCard extends HTMLElement {
         sensor_expired: 'Capteur expiré',
         no_data: 'Pas de données',
         entity_unavailable: 'Capteur indisponible',
+        time_in_range: 'TIR (24h)',
         time_units: {
           hours: 'heures',
           days: 'jours'
@@ -350,6 +372,7 @@ class LibrelinkExtendedCard extends HTMLElement {
         sensor_expired: 'Sensor caducado',
         no_data: 'Sin datos',
         entity_unavailable: 'Sensor no disponible',
+        time_in_range: 'TIR (24h)',
         time_units: {
           hours: 'horas',
           days: 'días'
@@ -471,6 +494,16 @@ class LibrelinkExtendedCard extends HTMLElement {
     if (mmolValue < 3.9) return 'var(--error-color, #FF0000)';
     if (mmolValue >= 10) return 'var(--warning-color, #FFC107)';
     return 'var(--success-color, #4CAF50)';
+  }
+
+  // Time in Range thresholds follow the commonly used clinical guideline
+  // (>=70% in range is the general target; below 50% is a concern).
+  _getTimeInRangeColor(value) {
+    const numValue = parseFloat(value);
+    if (isNaN(numValue)) return 'var(--secondary-text-color, #888)';
+    if (numValue >= 70) return 'var(--success-color, #4CAF50)';
+    if (numValue >= 50) return 'var(--warning-color, #FFC107)';
+    return 'var(--error-color, #FF5252)';
   }
 
   /**
@@ -663,6 +696,7 @@ class LibrelinkExtendedCard extends HTMLElement {
     const delta5State = this._getSensor('delta_5min');
     const delta15State = this._getSensor('delta_15min');
     const trendState = this._getSensor('trend');
+    const timeInRangeState = this._getSensor('time_in_range_24h');
 
     const trendArrow = trendArrowState ? trendArrowState.state : '';
     const delta1 = delta1State ? delta1State.state : '0';
@@ -709,7 +743,7 @@ class LibrelinkExtendedCard extends HTMLElement {
     // Icon + text in one inline-flex span.
     const footerItem = (icon, color, fontSize, text) => `
       <span style="display: inline-flex; align-items: center; gap: 4px; font-size: ${fontSize}px; color: ${color};">
-        <ha-icon icon="${icon}" style="--mdc-icon-size: ${fontSize}px; width: ${fontSize}px; height: ${fontSize}px; color: ${color}; position: relative; top: -0.4em;"></ha-icon>
+        <ha-icon icon="${icon}" style="--mdc-icon-size: ${fontSize}px; width: ${fontSize}px; height: ${fontSize}px; color: ${color}; position: relative; top: -0.45em;"></ha-icon>
         ${text}
       </span>
     `;
@@ -806,6 +840,18 @@ class LibrelinkExtendedCard extends HTMLElement {
       `);
     }
 
+    // Time in Range (24h) - a compact row, same style as the footer
+    // icon items, shown under the main block/secondary deltas.
+    if (this._config.show_time_in_range && timeInRangeState) {
+      const tirColor = this._getTimeInRangeColor(timeInRangeState.state);
+      const tirDisplay = this._formatPercent(timeInRangeState);
+      sections.push(`
+        <div style="margin-top: 6px;">
+          ${footerItem('mdi:target', tirColor, 14, `${t.time_in_range}: ${tirDisplay}`)}
+        </div>
+      `);
+    }
+
     // Footer row: timestamp (left) and expiration (right), separated
     // from the reading above by a hairline divider.
     let footerLeft = '';
@@ -861,6 +907,7 @@ class LibrelinkExtendedCard extends HTMLElement {
     const timestampInFooter = this._config.show_measurement !== false && this._config.show_timestamp !== false;
     if (timestampInFooter || this._config.show_expiration !== false) rows += 1;
     if (this._config.show_delta_1min || this._config.show_delta_5min || this._config.show_delta_15min) rows += 1;
+    if (this._config.show_time_in_range) rows += 1;
     return rows;
   }
 
@@ -883,19 +930,7 @@ class LibrelinkExtendedCard extends HTMLElement {
   static getStubConfig() {
     return {
       entity: '',
-      show_measurement: true,
-      show_unit: true,
-      show_trend_arrow: true,
-      show_trend_text: true,
-      show_delta: true,
-      show_timestamp: true,
-      show_expiration: true,
-      delta_type: 5,
-      show_delta_1min: false,
-      show_delta_5min: false,
-      show_delta_15min: false,
-      tap_action: { action: 'more-info' },
-      hold_action: { action: 'none' }
+      ...CARD_DEFAULTS
     };
   }
 }
@@ -933,6 +968,7 @@ const EDITOR_TRANSLATIONS = {
     show_delta_1min: 'Show 1 min delta',
     show_delta_5min: 'Show 5 min delta',
     show_delta_15min: 'Show 15 min delta',
+    show_time_in_range: 'Show Time in Range (24h)',
     tap_action: 'Tap action',
     hold_action: 'Hold action'
   },
@@ -959,6 +995,7 @@ const EDITOR_TRANSLATIONS = {
     show_delta_1min: 'Zobraziť 1-min rozdiel',
     show_delta_5min: 'Zobraziť 5-min rozdiel',
     show_delta_15min: 'Zobraziť 15-min rozdiel',
+    show_time_in_range: 'Zobraziť čas v rozsahu TIR (24h)',
     tap_action: 'Akcia po ťuknutí',
     hold_action: 'Akcia po podržaní'
   },
@@ -985,6 +1022,7 @@ const EDITOR_TRANSLATIONS = {
     show_delta_1min: '1-Min-Delta anzeigen',
     show_delta_5min: '5-Min-Delta anzeigen',
     show_delta_15min: '15-Min-Delta anzeigen',
+    show_time_in_range: 'Zeit im Zielbereich anzeigen TIR (24h)',
     tap_action: 'Tippaktion',
     hold_action: 'Halteaktion'
   },
@@ -1011,6 +1049,7 @@ const EDITOR_TRANSLATIONS = {
     show_delta_1min: 'Afficher le delta 1 min',
     show_delta_5min: 'Afficher le delta 5 min',
     show_delta_15min: 'Afficher le delta 15 min',
+    show_time_in_range: 'Afficher le temps dans la cible TIR (24h)',
     tap_action: 'Action au toucher',
     hold_action: "Action à l'appui long"
   },
@@ -1037,6 +1076,7 @@ const EDITOR_TRANSLATIONS = {
     show_delta_1min: 'Mostrar delta de 1 min',
     show_delta_5min: 'Mostrar delta de 5 min',
     show_delta_15min: 'Mostrar delta de 15 min',
+    show_time_in_range: 'Mostrar tiempo en rango TIR (24h)',
     tap_action: 'Acción al tocar',
     hold_action: 'Acción al mantener presionado'
   }
@@ -1126,6 +1166,7 @@ class LibrelinkExtendedCardEditor extends HTMLElement {
       { name: 'show_delta_1min', selector: { boolean: {} } },
       { name: 'show_delta_5min', selector: { boolean: {} } },
       { name: 'show_delta_15min', selector: { boolean: {} } },
+      { name: 'show_time_in_range', selector: { boolean: {} } },
       {
         name: 'unit',
         selector: {
@@ -1267,6 +1308,7 @@ if (!window.customCards.some((c) => c.type === 'librelink-extended-card')) {
         'last_measurement_timestamp',
         'expiration_timestamp',
         'glucose_trend_arrow',
+        'time_in_range_24h',
         'trend_arrow',
         'delta_15min',
         'delta_5min',
