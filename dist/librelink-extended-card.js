@@ -126,7 +126,7 @@ class LibrelinkExtendedCard extends HTMLElement {
       (this._hass && this._hass.language) ||
       'en';
 
-    const supported = ['en', 'sk', 'de', 'fr', 'es'];
+    const supported = ['en', 'sk', 'de', 'fr', 'es', 'pl'];
     const base = hassLanguage.split('-')[0].toLowerCase();
     return supported.includes(base) ? base : 'en';
   }
@@ -237,7 +237,8 @@ class LibrelinkExtendedCard extends HTMLElement {
     return match ? match[0].trim() : formatted.trim();
   }
 
-  // Formats a value
+  // Formats a value the same way Home Assistant's own built-in cards do,
+  // by delegating to hass.formatEntityState() when available. Falls back to manual formatting.
   _formatEntityValue(stateObj, rawValue, { showSign = false } = {}) {
     const value = stateObj ? stateObj.state : rawValue;
     const unit = this._getUnit(this._hass.states[this._config.entity]);
@@ -298,8 +299,8 @@ class LibrelinkExtendedCard extends HTMLElement {
         entity_unavailable: 'Sensor Unavailable',
         time_in_range: 'TIR (24h)',
         time_units: {
-          hours: 'hours',
-          days: 'days'
+          hours: () => 'hours',
+          days: () => 'days'
         }
       },
       sk: {
@@ -317,8 +318,8 @@ class LibrelinkExtendedCard extends HTMLElement {
         entity_unavailable: 'Senzor nedostupný',
         time_in_range: 'TIR (24h)',
         time_units: {
-          hours: 'hodín',
-          days: 'dní'
+          hours: (n) => (n >= 2 && n <= 4) ? 'hodiny' : 'hodín',
+          days: (n) => (n >= 2 && n <= 4) ? 'dni' : 'dní'
         }
       },
       de: {
@@ -336,8 +337,8 @@ class LibrelinkExtendedCard extends HTMLElement {
         entity_unavailable: 'Sensor nicht verfügbar',
         time_in_range: 'TIR (24h)',
         time_units: {
-          hours: 'Stunden',
-          days: 'Tage'
+          hours: () => 'Stunden',
+          days: () => 'Tage'
         }
       },
       fr: {
@@ -355,8 +356,8 @@ class LibrelinkExtendedCard extends HTMLElement {
         entity_unavailable: 'Capteur indisponible',
         time_in_range: 'TIR (24h)',
         time_units: {
-          hours: 'heures',
-          days: 'jours'
+          hours: () => 'heures',
+          days: () => 'jours'
         }
       },
       es: {
@@ -374,8 +375,27 @@ class LibrelinkExtendedCard extends HTMLElement {
         entity_unavailable: 'Sensor no disponible',
         time_in_range: 'TIR (24h)',
         time_units: {
-          hours: 'horas',
-          days: 'días'
+          hours: () => 'horas',
+          days: () => 'días'
+        }
+      },
+      pl: {
+        just_now: 'Przed chwilą',
+        min_ago: (n) => n === 1 ? '1 min temu' : `${n} min temu`,
+        hour_ago: (n) => n === 1 ? 'godzinę temu' : `${n} ${(n >= 2 && n <= 4) ? 'godziny' : 'godzin'} temu`,
+        day_ago: (n) => n === 1 ? 'dzień temu' : `${n} dni temu`,
+        expired: 'WYGASŁY',
+        expires: 'Wygasa za',
+        less_than_hour: 'Mniej niż godzinę',
+        one_hour: '1 godzinę',
+        one_day: '1 dzień',
+        sensor_expired: 'Czujnik wygasł',
+        no_data: 'Brak danych',
+        entity_unavailable: 'Czujnik niedostępny',
+        time_in_range: 'TIR (24h)',
+        time_units: {
+          hours: (n) => (n >= 2 && n <= 4) ? 'godziny' : 'godzin',
+          days: () => 'dni'
         }
       }
     };
@@ -434,9 +454,9 @@ class LibrelinkExtendedCard extends HTMLElement {
       
       let timeStr = '';
       if (diffDays >= 1) {
-        timeStr = diffDays === 1 ? t.one_day : `${diffDays} ${t.time_units.days}`;
+        timeStr = diffDays === 1 ? t.one_day : `${diffDays} ${t.time_units.days(diffDays)}`;
       } else if (diffHours >= 1) {
-        timeStr = diffHours === 1 ? t.one_hour : `${diffHours} ${t.time_units.hours}`;
+        timeStr = diffHours === 1 ? t.one_hour : `${diffHours} ${t.time_units.hours(diffHours)}`;
       } else {
         timeStr = t.less_than_hour;
       }
@@ -1079,6 +1099,33 @@ const EDITOR_TRANSLATIONS = {
     show_time_in_range: 'Mostrar tiempo en rango TIR (24h)',
     tap_action: 'Acción al tocar',
     hold_action: 'Acción al mantener presionado'
+  },
+  pl: {
+    entity: 'Encja glukozy',
+    entity_helper: 'Pokazuje tylko czujniki aktualnie raportujące mmol/L lub mg/dL. Jeśli Twoja encja się nie pojawia, przełącz tę kartę w tryb YAML i wpisz identyfikator encji ręcznie.',
+    unit: 'Jednostka',
+    unit_auto: 'Automatycznie (z czujnika)',
+    language: 'Język',
+    language_auto: 'Automatycznie (zgodnie z Home Assistant)',
+    decimals: 'Liczba miejsc po przecinku (nadpisz)',
+    decimals_helper: 'Pozostaw puste, aby użyć ustawienia precyzji wyświetlania encji',
+    delta_type: 'Główne okno delty',
+    delta_1min: '1 minuta',
+    delta_5min: '5 minut',
+    delta_15min: '15 minut',
+    show_measurement: 'Pokaż pomiar',
+    show_unit: 'Pokaż jednostkę (mmol/L, mg/dL)',
+    show_trend_arrow: 'Pokaż strzałkę trendu',
+    show_trend_text: 'Pokaż tekst trendu',
+    show_delta: 'Pokaż główną deltę',
+    show_timestamp: 'Pokaż znacznik czasu',
+    show_expiration: 'Pokaż wygaśnięcie czujnika',
+    show_delta_1min: 'Pokaż deltę 1 min',
+    show_delta_5min: 'Pokaż deltę 5 min',
+    show_delta_15min: 'Pokaż deltę 15 min',
+    show_time_in_range: 'Pokaż czas w zakresie TIR (24h)',
+    tap_action: 'Akcja po dotknięciu',
+    hold_action: 'Akcja po przytrzymaniu'
   }
 };
 
@@ -1090,7 +1137,7 @@ function detectEditorLanguage(hass, config) {
     (hass && hass.locale && hass.locale.language) ||
     (hass && hass.language) ||
     'en';
-  const supported = ['en', 'sk', 'de', 'fr', 'es'];
+  const supported = ['en', 'sk', 'de', 'fr', 'es', 'pl'];
   const base = hassLanguage.split('-')[0].toLowerCase();
   return supported.includes(base) ? base : 'en';
 }
@@ -1191,7 +1238,8 @@ class LibrelinkExtendedCardEditor extends HTMLElement {
               { value: 'sk', label: 'Slovenčina' },
               { value: 'de', label: 'Deutsch' },
               { value: 'fr', label: 'Français' },
-              { value: 'es', label: 'Español' }
+              { value: 'es', label: 'Español' },
+              { value: 'pl', label: 'Polski' }
             ]
           }
         }
