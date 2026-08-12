@@ -18,6 +18,9 @@ A custom [Home Assistant](https://www.home-assistant.io/) Lovelace card for disp
 - 🤞 Tap and hold actions (more-info, navigate, url, call-service, toggle)
 - 🎨 Clean, minimal design
 
+## 📸 Screenshot
+<img width="586" height="265" alt="librelink-extended-card-screenshot" src="/assets/screenshot.jpg" />
+
 ## 📦 Installation
 
 ### HACS (Recommended)
@@ -143,8 +146,7 @@ hold_action:
   action: none
 
 ```
-## 📸 Screenshots
-<img width="535" height="302" alt="librelink-extended-card-screenshot" src="https://raw.githubusercontent.com/dodog/librelink-extended-card/refs/heads/main/screenshot.png" />
+
 
 
 ##   🔧 Requirements
