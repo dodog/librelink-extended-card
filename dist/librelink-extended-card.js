@@ -685,9 +685,9 @@ class LibrelinkExtendedCard extends HTMLElement {
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          background: var(--ha-card-background);
-          border-radius: var(--ha-card-border-radius);
-          box-shadow: var(--ha-card-box-shadow);
+          background: var(--ha-card-background, var(--card-background-color, #fff));
+          border-radius: var(--ha-card-border-radius, 12px);
+          box-shadow: var(--ha-card-box-shadow, none);
           border: none;
           min-height: 80px;
         ">
@@ -893,7 +893,7 @@ class LibrelinkExtendedCard extends HTMLElement {
           justify-content: space-between;
           width: 100%;
           margin-top: 8px;
-          ${sections.length > 0 ? 'padding-top: 8px; border-top: 1px solid var(--divider-color, rgba(255,255,255,0.08));' : ''}
+          ${sections.length > 0 ? 'padding-top: 8px; border-top: 1px solid var(--divider-color, rgba(0,0,0,0.12));' : ''}
         ">
           ${footerLeft}
           ${footerRight}
@@ -908,10 +908,10 @@ class LibrelinkExtendedCard extends HTMLElement {
         display: flex;
         flex-direction: column;
         justify-content: center;
-        background: var(--ha-card-background, #1a1a1a);
+        background: var(--ha-card-background, var(--card-background-color, #fff));
         border-radius: var(--ha-card-border-radius, 12px);
-        box-shadow: var(--ha-card-box-shadow, 0 2px 8px rgba(0,0,0,0.3));
-        border: 1px solid var(--ha-card-border-color, rgba(255,255,255,0.05));
+        box-shadow: var(--ha-card-box-shadow, none);
+        border: 1px solid var(--ha-card-border-color, var(--divider-color, #e0e0e0));
         min-height: ${this._config.show_measurement !== false ? '130px' : '80px'};
       ">
         ${sections.join('')}
