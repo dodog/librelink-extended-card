@@ -23,14 +23,11 @@ A custom [Home Assistant](https://www.home-assistant.io/) Lovelace card for disp
 
 ## 📦 Installation
 
-### HACS (Recommended)
+### Automatic via [HACS](https://hacs.xyz/) (Recommended)
+1. [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=dodog&repository=librelink-extended-card&category=dashboard)
+2. Add this repository
+3. Click **download** on bottom right corner and install it.
 
-1. Add as a custom repository in [HACS](https://hacs.xyz/):
-   - HACS → Click on 3 dots top right ⋮ → Custom repositories
-   - URL: `https://github.com/dodog/librelink-extended-card`
-   - Type: Dashboard
-2. Click Install
-3. Find the "Librelink Extended Card" and click "Download"
 
 ### Manual Installation
 1. Download `librelink-extended-card.js`
@@ -170,6 +167,9 @@ Contributions are welcome! Please open an issue or submit a PR.
 ## 📝 License
 This project is licensed under the GNU General Public License v3.0.
 
-## 🙏 Credits
+## ❤️ Support
 
-Built for the [LibreLink Home Assistant integration](https://github.com/dodog/librelink)
+Like this dashboard card? Give it a ⭐ on GitHub. And if this helps you manage your (or a loved one's) diabetes data you can buy me a coffee:
+
+- ☕ [Buy Me a Coffee](https://www.buymeacoffee.com/dodog)
+- 💛 [Ko-fi](https://ko-fi.com/dodog)
